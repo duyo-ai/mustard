@@ -307,7 +307,6 @@ export function PlacementVisualizer({
               {phrases.map((phrase, phraseIndex) => {
                 const phraseLevelPlacements = getPhraseLevelPlacements(phraseIndex);
                 const statementLevelPlacements = getStatementLevelPlacements(phraseIndex);
-                const allPlacements = placementsByPhrase.get(phraseIndex) || [];
                 const isDropTarget = hoveredPhraseIndex === phraseIndex;
 
                 return (
@@ -478,20 +477,6 @@ export function PlacementVisualizer({
                       })}
                     </div>
 
-                    {/* Empty Drop Zone Indicator */}
-                    {allPlacements.length === 0 && (
-                      <div
-                        className={`
-                          m-3 border-2 border-dashed rounded p-3 text-center
-                          transition-colors duration-200
-                          ${isDropTarget ? "border-primary bg-primary/10" : "border-muted-foreground/25"}
-                        `}
-                      >
-                        <p className="text-xs text-muted-foreground">
-                          {isDropTarget ? "Drop image here" : "Drop image to place"}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 );
               })}
