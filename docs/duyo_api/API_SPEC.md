@@ -195,12 +195,12 @@ AI 어시스턴트와 대화하며 HOOK, BODY, CTA를 편집합니다.
 ```json
 {
   "success": true,
-  "response": "수정해드렸습니다!\n\n---HOOK---\n수정된 HOOK 내용\n---HOOK_END---\n\n...",
+  "response": "== HOOK ==\n수정된 HOOK 내용\n\n== BODY ==\n수정된 BODY 내용\n\nresponse: 수정해드렸습니다!",
   "model_used": "claude-4.5"
 }
 ```
 
-> **Note:** AI 응답 내에서 `---HOOK---`, `---BODY---`, `---CTA---` 태그를 사용하여 수정된 콘텐츠를 전달합니다. 클라이언트에서 파싱 필요.
+> **Note:** AI 응답 내에서 `== HOOK ==`, `== BODY ==`, `== CTA ==` 마커를 사용하여 수정된 콘텐츠를 구분합니다. `response:` 필드에 사용자용 메시지가 포함됩니다. 클라이언트에서 파싱 필요.
 
 ---
 

@@ -138,30 +138,59 @@ export async function generateCTA(
 
 /**
  * Parses the AI response to extract HOOK, BODY, and CTA content.
- * The AI uses markers like ---HOOK---, ---BODY---, ---CTA--- to delimit sections.
+ *
+ * The actual Duyo API uses "== HOOK ==" style markers (not "---HOOK---").
+ * Format:
+ *   == HOOK ==
+ *   [content]
+ *
+ *   == BODY ==
+ *   [content]
+ *
+ *   == CTA ==
+ *   [content]
+ *
+ *   response: [user-facing message]
  */
-function parseRefinedContent(response: string): RefineStoryResponse["parsed"] {
-  const result: RefineStoryResponse["parsed"] = {};
+function parseRefinedContent(response: string): {
+  parsed: RefineStoryResponse["parsed"];
+  userMessage: string;
+} {
+  const parsed: RefineStoryResponse["parsed"] = {};
 
-  /* Extract HOOK section */
-  const hookMatch = response.match(/---HOOK---\s*([\s\S]*?)\s*---HOOK_END---/);
-  if (hookMatch) {
-    result.hook = hookMatch[1].trim();
+  /*
+   * Extract sections using "== SECTION ==" format.
+   * Each section ends at the next "== " marker or "response:" or end of string.
+   */
+  const hookMatch = response.match(
+    /==\s*HOOK\s*==\s*([\s\S]*?)(?=(?:==\s*(?:BODY|CTA)\s*==|response:|$))/i
+  );
+  if (hookMatch && hookMatch[1].trim()) {
+    parsed.hook = hookMatch[1].trim();
   }
 
-  /* Extract BODY section */
-  const bodyMatch = response.match(/---BODY---\s*([\s\S]*?)\s*---BODY_END---/);
-  if (bodyMatch) {
-    result.body = bodyMatch[1].trim();
+  const bodyMatch = response.match(
+    /==\s*BODY\s*==\s*([\s\S]*?)(?=(?:==\s*(?:HOOK|CTA)\s*==|response:|$))/i
+  );
+  if (bodyMatch && bodyMatch[1].trim()) {
+    parsed.body = bodyMatch[1].trim();
   }
 
-  /* Extract CTA section */
-  const ctaMatch = response.match(/---CTA---\s*([\s\S]*?)\s*---CTA_END---/);
-  if (ctaMatch) {
-    result.cta = ctaMatch[1].trim();
+  const ctaMatch = response.match(
+    /==\s*CTA\s*==\s*([\s\S]*?)(?=(?:==\s*(?:HOOK|BODY)\s*==|response:|$))/i
+  );
+  if (ctaMatch && ctaMatch[1].trim()) {
+    parsed.cta = ctaMatch[1].trim();
   }
 
-  return Object.keys(result).length > 0 ? result : undefined;
+  /* Extract user-facing message from "response:" field */
+  const responseMatch = response.match(/response:\s*([\s\S]*?)$/i);
+  const userMessage = responseMatch ? responseMatch[1].trim() : response;
+
+  return {
+    parsed: Object.keys(parsed).length > 0 ? parsed : undefined,
+    userMessage,
+  };
 }
 
 /**
@@ -176,7 +205,7 @@ export async function refineStory(
   openRouterKey: string,
   request: RefineStoryRequest
 ): Promise<RefineStoryResponse> {
-  const response = await duyoFetch<RefineStoryResponse>(
+  const rawResponse = await duyoFetch<{ success: boolean; response: string; model_used: string }>(
     "refine_story.php",
     openRouterKey,
     {
@@ -189,10 +218,14 @@ export async function refineStory(
     }
   );
 
-  /* Parse the response to extract structured content if available */
+  /* Parse the response to extract structured content and user message */
+  const { parsed, userMessage } = parseRefinedContent(rawResponse.response);
+
   return {
-    ...response,
-    parsed: parseRefinedContent(response.response),
+    success: rawResponse.success,
+    response: userMessage,
+    model_used: rawResponse.model_used,
+    parsed,
   };
 }
 
