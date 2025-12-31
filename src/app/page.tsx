@@ -18,7 +18,18 @@ import { StoryEditor } from "@/components/story/StoryEditor";
 import { ViralContentPanel } from "@/components/export/ViralContentPanel";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { SelectedKeywords, Phrase, ImagePlacement, ImageDescription, LLMUsageLog } from "@/lib/core/types";
+import type {
+  SelectedKeywords,
+  Phrase,
+  ImagePlacement,
+  ImageDescription,
+  LLMUsageLog,
+  PlacementContext,
+  CharacterInfo,
+  LocationInfo,
+} from "@/lib/core/types";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export default function Home() {
   /* Workflow State */
@@ -49,6 +60,10 @@ export default function Home() {
 
   /* Error State */
   const [error, setError] = useState<string | null>(null);
+
+  /* Advanced Placement Toggle */
+  const [advancedPlacement, setAdvancedPlacement] = useState(false);
+  const [isExtractingContext, setIsExtractingContext] = useState(false);
 
   /* Step 1: Generate Story */
   const handleGenerateStory = useCallback(async (keywords: SelectedKeywords) => {
@@ -200,6 +215,71 @@ export default function Home() {
       setImageDescriptions(analyzeData.descriptions);
       completeStep("images");
 
+      /*
+       * Advanced Placement: Extract character/location context.
+       * When enabled, we call additional APIs to get semantic context
+       * that helps Gemini make smarter placement decisions.
+       */
+      let placementContext: PlacementContext | undefined;
+
+      if (advancedPlacement && story) {
+        setIsExtractingContext(true);
+        console.log("[Advanced Placement] Extracting character/location context...");
+
+        try {
+          /* Extract characters and locations in parallel */
+          const [charactersRes, locationsRes] = await Promise.all([
+            fetch("/api/extract-characters", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ story }),
+            }),
+            fetch("/api/get-location", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                scenes: phrases.map((p) =>
+                  p.statements.map((s) => s.displayText).join(" ")
+                ),
+              }),
+            }),
+          ]);
+
+          const [charactersData, locationsData] = await Promise.all([
+            charactersRes.json(),
+            locationsRes.json(),
+          ]);
+
+          placementContext = {};
+
+          if (charactersRes.ok && charactersData.characterDetails) {
+            placementContext.characters = charactersData.characterDetails as CharacterInfo[];
+            console.log("[Advanced Placement] Characters extracted:", placementContext.characters.length);
+          }
+
+          if (locationsRes.ok && locationsData.processedScenes) {
+            placementContext.locations = locationsData.processedScenes
+              .map((scene: { location: string | null }, index: number) => ({
+                phraseIndex: index,
+                location: scene.location || "Unknown",
+              }))
+              .filter((loc: LocationInfo) => loc.location !== "Unknown") as LocationInfo[];
+            console.log("[Advanced Placement] Locations extracted:", placementContext.locations.length);
+          }
+
+          /* Only use context if we got meaningful data */
+          if (!placementContext.characters?.length && !placementContext.locations?.length) {
+            placementContext = undefined;
+            console.log("[Advanced Placement] No context extracted, using basic placement");
+          }
+        } catch (contextError) {
+          console.warn("[Advanced Placement] Context extraction failed, continuing with basic placement:", contextError);
+          placementContext = undefined;
+        } finally {
+          setIsExtractingContext(false);
+        }
+      }
+
       /* Place images */
       setIsAnalyzing(false);
       setIsPlacing(true);
@@ -211,6 +291,7 @@ export default function Home() {
         body: JSON.stringify({
           phrases,
           imageDescriptions: analyzeData.descriptions,
+          context: placementContext,
         }),
       });
 
@@ -244,9 +325,10 @@ export default function Home() {
     } finally {
       setIsAnalyzing(false);
       setIsPlacing(false);
+      setIsExtractingContext(false);
       setLoading(null);
     }
-  }, [images, phrases, completeStep, goToStep, addLog, setLoading]);
+  }, [images, phrases, story, advancedPlacement, completeStep, goToStep, addLog, setLoading]);
 
   /* Handle Placement Changes (manual drag-drop) */
   const handlePlacementChange = useCallback((newPlacements: ImagePlacement[]) => {
@@ -353,16 +435,38 @@ export default function Home() {
               <ImageUploader onImagesChange={handleImagesChange} />
               <PhraseTree phrases={phrases} placements={placements} />
             </div>
+
+            {/* Advanced Placement Toggle */}
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+              <div className="space-y-0.5">
+                <Label htmlFor="advanced-placement" className="text-sm font-medium">
+                  Advanced Placement
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Extract characters and locations for smarter image matching
+                </p>
+              </div>
+              <Switch
+                id="advanced-placement"
+                checked={advancedPlacement}
+                onCheckedChange={setAdvancedPlacement}
+              />
+            </div>
+
             <Button
               className="w-full"
               onClick={handleAnalyzeAndPlace}
-              disabled={images.length === 0 || isAnalyzing || isPlacing}
+              disabled={images.length === 0 || isAnalyzing || isPlacing || isExtractingContext}
             >
               {isAnalyzing
                 ? "Analyzing Images..."
-                : isPlacing
-                  ? "Placing Images..."
-                  : "Analyze & Place Images"}
+                : isExtractingContext
+                  ? "Extracting Context..."
+                  : isPlacing
+                    ? "Placing Images..."
+                    : advancedPlacement
+                      ? "Analyze & Place (Advanced)"
+                      : "Analyze & Place Images"}
             </Button>
           </TabsContent>
 
