@@ -88,9 +88,9 @@ export async function POST(request: Request) {
       const koreanType: Record<string, string> = {
         engagement: "참여 유도형",
         subscribe: "구독/팔로우 유형",
-        extended_viewing: "확장 시청 유도형",
-        external_action: "행동 전환형",
-        fomo: "즉각 행동 촉구형",
+        extend: "확장 시청 유도형",
+        convert: "행동 전환형",
+        urgent: "즉각 행동 촉구형",
       };
       selectedCTA = ctas[koreanType[body.ctaType] || body.ctaType];
     }

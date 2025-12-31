@@ -18,13 +18,17 @@ import {
  * Types
  * ───────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * CtaType matches the legacy duyo/types.ts for backwards compatibility.
+ * Frontend components depend on these exact values.
+ */
 export type CtaType =
   | "auto"
-  | "engagement"
-  | "subscribe"
-  | "extended_viewing"
-  | "external_action"
-  | "fomo";
+  | "engagement"  // 참여 유도형
+  | "subscribe"   // 구독/팔로우 유형
+  | "extend"      // 확장 시청 유도형
+  | "convert"     // 행동 전환형
+  | "urgent";     // 즉각 행동 촉구형
 
 export interface GenerateCtaInput {
   bodyContent: string;
@@ -43,9 +47,9 @@ const CTA_TYPE_LABELS: Record<CtaType, string> = {
   auto: "자동",
   engagement: "참여 유도형",
   subscribe: "구독/팔로우 유형",
-  extended_viewing: "확장 시청 유도형",
-  external_action: "행동 전환형",
-  fomo: "즉각 행동 촉구형",
+  extend: "확장 시청 유도형",
+  convert: "행동 전환형",
+  urgent: "즉각 행동 촉구형",
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────

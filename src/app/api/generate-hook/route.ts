@@ -87,11 +87,11 @@ export async function POST(request: Request) {
       // Map English type to Korean label for lookup
       const koreanType: Record<string, string> = {
         question: "질문형",
-        shocking_fact: "충격 사실형",
+        shocking: "충격 사실형",
         contrast: "대비형",
-        story_teaser: "스토리 티저형",
-        statistics: "통계 강조형",
-        action_inducing: "행동 유도형",
+        teaser: "스토리 티저형",
+        statistic: "통계 강조형",
+        action: "행동 유도형",
       };
       selectedHook = hooks[koreanType[body.hookType] || body.hookType];
     }

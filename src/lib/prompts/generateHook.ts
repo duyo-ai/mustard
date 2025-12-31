@@ -18,14 +18,18 @@ import {
  * Types
  * ───────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * HookType matches the legacy duyo/types.ts for backwards compatibility.
+ * Frontend components depend on these exact values.
+ */
 export type HookType =
   | "auto"
-  | "question"
-  | "shocking_fact"
-  | "contrast"
-  | "story_teaser"
-  | "statistics"
-  | "action_inducing";
+  | "question"   // 질문형
+  | "shocking"   // 충격 사실형
+  | "contrast"   // 대비형
+  | "teaser"     // 스토리 티저형
+  | "statistic"  // 통계 강조형
+  | "action";    // 행동 유도형
 
 export interface GenerateHookInput {
   bodyContent: string;
@@ -43,11 +47,11 @@ export interface ParsedHooks {
 const HOOK_TYPE_LABELS: Record<HookType, string> = {
   auto: "자동",
   question: "질문형",
-  shocking_fact: "충격 사실형",
+  shocking: "충격 사실형",
   contrast: "대비형",
-  story_teaser: "스토리 티저형",
-  statistics: "통계 강조형",
-  action_inducing: "행동 유도형",
+  teaser: "스토리 티저형",
+  statistic: "통계 강조형",
+  action: "행동 유도형",
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -66,14 +66,17 @@ export function AIAssistant({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   /* Auto-scroll to bottom when new messages arrive */
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    /*
+     * Previous approach using scrollRef.scrollTop didn't work because
+     * Radix UI's ScrollArea wraps content in an internal viewport element.
+     * Using scrollIntoView on a marker element at the end is more reliable.
+     */
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
   const sendMessage = async (message: string) => {
     if (!message.trim() || isLoading) return;
@@ -155,7 +158,7 @@ export function AIAssistant({
     <div className={cn("flex flex-col h-full", className)}>
       <div className="flex-1 flex flex-col gap-3 p-3 overflow-hidden">
         {/* Messages Area */}
-        <ScrollArea className="flex-1 pr-3" ref={scrollRef}>
+        <ScrollArea className="flex-1 pr-3">
           <div className="space-y-4">
             {messages.length === 0 ? (
               <div className="text-center text-sm text-muted-foreground py-8">
@@ -209,6 +212,8 @@ export function AIAssistant({
                 </div>
               </div>
             )}
+            {/* Scroll anchor - scrollIntoView targets this element */}
+            <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
 

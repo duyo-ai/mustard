@@ -10,10 +10,10 @@ import { analyzeImagesFromBase64 } from "@/lib/gemini/analyzeImages";
 const MAX_IMAGES = 50;
 
 /*
- * Maximum size per image in bytes (5MB).
- * Gemini accepts up to a certain size, but we limit for performance.
+ * Maximum size per image in bytes (100MB).
+ * Increased to support high-resolution images for better analysis quality.
  */
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE = 100 * 1024 * 1024;
 
 /*
  * POST /api/analyze-images
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       const estimatedSize = (img.data.length * 3) / 4;
       if (estimatedSize > MAX_IMAGE_SIZE) {
         return NextResponse.json(
-          { error: `images[${i}] exceeds maximum size of 5MB` },
+          { error: `images[${i}] exceeds maximum size of 100MB` },
           { status: 400 }
         );
       }
