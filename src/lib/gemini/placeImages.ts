@@ -67,23 +67,34 @@ export async function placeImages(
   const genAI = new GoogleGenerativeAI(apiKey);
   const startTime = Date.now();
 
+  console.log("[placeImages] Starting placement analysis", {
+    phraseCount: phrases.length,
+    imageCount: imageDescriptions.length,
+    totalStatements: phrases.reduce((sum, p) => sum + p.statements.length, 0),
+  });
+
   /*
    * Configure model with JSON response mode.
    * This forces Gemini to output only valid JSON, eliminating parsing issues.
+   *
+   * maxOutputTokens increased to 16384 to handle large stories (17+ scenes).
+   * Previous value of 8192 caused truncation on complex placements.
    */
   const model = genAI.getGenerativeModel({
     model: GEMINI_MODEL_ID,
     systemInstruction: IMAGE_PLACEMENT_SYSTEM_INSTRUCTION,
     generationConfig: {
       temperature: 0.3,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 16384,
       responseMimeType: "application/json",
     },
   });
 
   const userPrompt = buildImagePlacementPrompt(phrases, imageDescriptions);
+  console.log("[placeImages] Prompt length:", userPrompt.length, "chars");
 
   try {
+    console.log("[placeImages] Calling Gemini API...");
     const result = await model.generateContent(userPrompt);
     const latencyMs = Date.now() - startTime;
     const response = result.response;
@@ -113,31 +124,50 @@ export async function placeImages(
       finishReason,
     };
 
+    /* Log response metadata */
+    console.log("[placeImages] Response received", {
+      latencyMs,
+      finishReason,
+      inputTokens,
+      outputTokens,
+      responseLength: text.length,
+    });
+
+    /* Warn if response was truncated */
+    if (finishReason === "MAX_TOKENS") {
+      console.warn("[placeImages] WARNING: Response truncated due to MAX_TOKENS limit!");
+    }
+
     /* Log raw response for debugging (truncated) */
-    console.log("Gemini placement response (first 500 chars):", text.slice(0, 500));
+    console.log("[placeImages] Response preview (first 500 chars):", text.slice(0, 500));
 
     /* Parse JSON response */
+    console.log("[placeImages] Parsing JSON response...");
     let parsed: { placements?: unknown[] };
     try {
       parsed = JSON.parse(text);
+      console.log("[placeImages] JSON parsed successfully");
     } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      console.error("Raw response:", text);
+      console.error("[placeImages] JSON parse error:", parseError);
+      console.error("[placeImages] Response length:", text.length);
+      console.error("[placeImages] Last 200 chars:", text.slice(-200));
 
       /* Attempt to extract JSON from response if it contains extra text */
+      console.log("[placeImages] Attempting to extract JSON...");
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           parsed = JSON.parse(jsonMatch[0]);
-          console.log("Extracted JSON from response");
+          console.log("[placeImages] Extracted JSON successfully");
         } catch {
-          console.error("Failed to extract JSON from response");
+          console.error("[placeImages] Failed to extract valid JSON, using fallback");
           return {
             placements: createFallbackPlacements(imageDescriptions, phrases),
             usage,
           };
         }
       } else {
+        console.error("[placeImages] No JSON structure found, using fallback");
         return {
           placements: createFallbackPlacements(imageDescriptions, phrases),
           usage,
@@ -146,12 +176,14 @@ export async function placeImages(
     }
 
     if (!parsed.placements || !Array.isArray(parsed.placements)) {
-      console.error("Invalid placements structure:", parsed);
+      console.error("[placeImages] Invalid placements structure:", parsed);
       return {
         placements: createFallbackPlacements(imageDescriptions, phrases),
         usage,
       };
     }
+
+    console.log("[placeImages] Raw placements count:", parsed.placements.length);
 
     /* Validate and clean up placements */
     let validPlacements = validatePlacements(
@@ -159,13 +191,19 @@ export async function placeImages(
       phrases,
       imageDescriptions.length
     );
+    console.log("[placeImages] After validation:", validPlacements.length, "placements");
 
     /* Resolve placement conflicts (1 Phrase = max 1 phrase-scope, 1 Statement = max 1 image) */
+    const beforeConflictResolution = validPlacements.length;
     validPlacements = resolvePlacementConflicts(validPlacements, phrases.length);
+    console.log("[placeImages] After conflict resolution:", validPlacements.length, "placements", {
+      phraseScope: validPlacements.filter((p) => p.type === "phrase").length,
+      statementScope: validPlacements.filter((p) => p.type === "statement").length,
+    });
 
     /* Check if we got valid placements for all images */
     if (validPlacements.length === 0) {
-      console.warn("No valid placements found, using fallback");
+      console.warn("[placeImages] No valid placements found, using fallback");
       return {
         placements: createFallbackPlacements(imageDescriptions, phrases),
         usage,
@@ -175,20 +213,27 @@ export async function placeImages(
     /* Fill in missing images if some were not placed */
     if (validPlacements.length < imageDescriptions.length) {
       console.warn(
-        `Only ${validPlacements.length}/${imageDescriptions.length} images placed, filling gaps`
+        `[placeImages] Only ${validPlacements.length}/${imageDescriptions.length} images placed, filling gaps`
       );
+      const filledPlacements = fillMissingPlacements(validPlacements, imageDescriptions, phrases);
+      console.log("[placeImages] After filling gaps:", filledPlacements.length, "placements");
       return {
-        placements: fillMissingPlacements(validPlacements, imageDescriptions, phrases),
+        placements: filledPlacements,
         usage,
       };
     }
 
-    console.log(`Successfully placed ${validPlacements.length} images`);
+    console.log("[placeImages] Placement complete", {
+      total: validPlacements.length,
+      phraseScope: validPlacements.filter((p) => p.type === "phrase").length,
+      statementScope: validPlacements.filter((p) => p.type === "statement").length,
+    });
     return { placements: validPlacements, usage };
   } catch (error) {
     const latencyMs = Date.now() - startTime;
-    console.error("Image placement API error:", error);
+    console.error("[placeImages] API error:", error);
 
+    console.warn("[placeImages] Using fallback placements due to error");
     return {
       placements: createFallbackPlacements(imageDescriptions, phrases),
       usage: {
