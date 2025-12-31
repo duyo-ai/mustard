@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duyo API 테스트 페이지</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .json-viewer {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn-active {
+            background-color: #3b82f6 !important;
+            color: white !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="container mx-auto px-4 max-w-7xl">
+        <!-- 헤더 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">🧪 Duyo Story API 테스트</h1>
+            <p class="text-gray-600">API를 테스트하고 요청/응답 데이터를 확인하세요.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 왼쪽: 입력 폼 -->
+            <div class="bg-white rounded-lg shadow-md p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">📝 API 요청 설정</h2>
+                
+                <form id="apiTestForm">
+                    <!-- API 인증 -->
+                    <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded">
+                        <h3 class="font-semibold text-gray-800 mb-3">🔑 인증 정보</h3>
+                        
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Duyo API Key</label>
+                            <input type="text" id="apiKey" value="sk-yumeta-duyo-270091" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">OpenRouter API Key *</label>
+                            <input type="text" id="openrouterKey" placeholder="sk-or-v1-... (필수)" 
+                                   class="w-full px-3 py-2 border border-red-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" required>
+                            <p class="text-xs text-red-500 mt-1">⚠️ 필수 입력 항목입니다</p>
+                        </div>
+                    </div>
+
+                    <!-- 모델 선택 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">AI 모델</label>
+                        <div class="flex gap-2">
+                            <button type="button" class="model-btn flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors" data-model="claude-3-7">
+                                Claude 3.7
+                            </button>
+                            <button type="button" class="model-btn flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors" data-model="claude-4">
+                                Claude 4
+                            </button>
+                            <button type="button" class="model-btn flex-1 py-2 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors btn-active" data-model="claude-4-5">
+                                Claude 4.5
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 페르소나 타입 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">페르소나 타입 *</label>
+                        <select id="personaType" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="일반인 썰">일반인 썰</option>
+                            <option value="정보글">정보글</option>
+                            <option value="간접광고">간접광고</option>
+                        </select>
+                    </div>
+
+                    <!-- 말투 선택 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">말투</label>
+                        <select id="toneType" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="자동">자동</option>
+                            <option value="음슴체">음슴체</option>
+                            <option value="해요체">해요체</option>
+                            <option value="다나까">다나까체</option>
+                            <option value="사극체">사극체</option>
+                            <option value="상남자">상남자</option>
+                            <option value="경상도체">경상도체</option>
+                            <option value="전라도체">전라도체</option>
+                            <option value="충청도체">충청도체</option>
+                            <option value="친구체">친구체</option>
+                            <option value="디씨체">디씨인사이드체</option>
+                        </select>
+                    </div>
+
+                    <!-- 장르 선택 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">장르</label>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="">선택 안 함</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="알바">알바 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="학교">학교 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="군대">군대 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="가족">가족 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="연애">연애 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="동물">동물 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="여행">여행 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="맞짱, 싸움">맞짱 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="친구">친구 썰</button>
+                            <button type="button" class="genre-btn px-3 py-1 rounded-full text-xs bg-gray-100 hover:bg-gray-200 transition-colors" data-genre="흑역사">흑역사</button>
+                        </div>
+                        <input type="text" id="customGenre" placeholder="또는 직접 입력..." class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <!-- 주제 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">주제 *</label>
+                        <textarea id="topic" rows="3" placeholder="예: 회사에서 있었던 황당한 일" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+
+                    <!-- 광고 상품 (간접광고일 때만 표시) -->
+                    <div id="adProductField" class="mb-4 hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">광고 상품 *</label>
+                        <textarea id="adProduct" rows="3" placeholder="예: ABC 다이어트 보조제" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+
+                    <!-- 추가 요청사항 -->
+                    <div class="mb-4">
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" id="additionalRequestCheck" class="mr-2">
+                            <span class="text-sm text-gray-700">추가 요청사항</span>
+                        </label>
+                        <div id="additionalRequestField" class="hidden">
+                            <textarea id="additionalRequest" rows="2" placeholder="추가 요청사항을 입력하세요" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 옵션 그리드 -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">분위기</label>
+                            <select id="storyMood" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="자동">자동</option>
+                                <option value="웃기게">웃기게</option>
+                                <option value="진지하게">진지하게</option>
+                                <option value="허무하게">허무하게</option>
+                                <option value="무섭게">무섭게</option>
+                                <option value="슬프게">슬프게</option>
+                                <option value="설레게">설레게</option>
+                                <option value="감동적으로">감동적으로</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">결말 스타일</label>
+                            <select id="endingStyle" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="자동">자동</option>
+                                <option value="해피엔딩">해피엔딩</option>
+                                <option value="반전">반전엔딩</option>
+                                <option value="여운">여운있는 결말</option>
+                                <option value="슬픈">슬픈 결말</option>
+                                <option value="훈훈">훈훈한 결말</option>
+                                <option value="충격">충격적 결말</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">화자 성별</label>
+                            <select id="narratorGender" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="자동">자동</option>
+                                <option value="남성">남성</option>
+                                <option value="여성">여성</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">화자 나이대</label>
+                            <select id="narratorAge" class="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="자동">자동</option>
+                                <option value="10대">10대</option>
+                                <option value="20대">20대</option>
+                                <option value="30대">30대</option>
+                                <option value="40대">40대</option>
+                                <option value="50대">50대</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 수위 조절 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">수위 조절</label>
+                        <div class="flex gap-2 items-center">
+                            <button type="button" class="level-btn px-3 py-1.5 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition-colors" data-level="1">순한맛</button>
+                            <button type="button" class="level-btn px-3 py-1.5 rounded-full text-sm bg-blue-200 text-blue-800 hover:bg-blue-300 transition-colors btn-active" data-level="2">중간맛</button>
+                            <button type="button" class="level-btn px-3 py-1.5 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition-colors" data-level="3">매운맛</button>
+                            <button type="button" id="adultButton" class="hidden px-3 py-1.5 rounded-full text-sm bg-red-100 text-red-600 hover:bg-red-200 transition-colors">🔞</button>
+                        </div>
+                    </div>
+
+                    <!-- 썰 길이 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">썰 길이</label>
+                        <div class="flex gap-2">
+                            <button type="button" class="length-btn px-3 py-1.5 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition-colors" data-length="short">짧게</button>
+                            <button type="button" class="length-btn px-3 py-1.5 rounded-full text-sm bg-blue-200 text-blue-800 hover:bg-blue-300 transition-colors btn-active" data-length="medium">중간</button>
+                            <button type="button" class="length-btn px-3 py-1.5 rounded-full text-sm bg-gray-100 hover:bg-gray-200 transition-colors" data-length="long">길게</button>
+                        </div>
+                    </div>
+
+                    <!-- 체크박스 옵션 -->
+                    <div class="mb-4 p-3 bg-gray-50 rounded">
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" id="splitEnding" class="mr-2">
+                            <span class="text-sm text-gray-700">결말 A/B 분기</span>
+                        </label>
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" id="includeComments" class="mr-2">
+                            <span class="text-sm text-gray-700">댓글 포함</span>
+                        </label>
+                        <label class="flex items-center mb-2">
+                            <input type="checkbox" id="includeQuestions" class="mr-2">
+                            <span class="text-sm text-gray-700">마무리 질문 포함</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="limitCharacters" checked class="mr-2">
+                            <span class="text-sm text-gray-700">등장인물 수 제한 (3명 이하)</span>
+                        </label>
+                    </div>
+
+                    <!-- 버튼 -->
+                    <button type="submit" id="testButton" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded transition duration-200">
+                        🚀 API 호출하기
+                    </button>
+                </form>
+            </div>
+
+            <!-- 오른쪽: 결과 -->
+            <div class="space-y-6">
+                <!-- 요청 데이터 -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">📤 요청 데이터</h2>
+                    <div class="bg-gray-900 text-green-400 p-4 rounded overflow-auto max-h-96 json-viewer">
+                        <pre id="requestData">API를 호출하면 요청 데이터가 여기에 표시됩니다.</pre>
+                    </div>
+                </div>
+
+                <!-- 응답 데이터 -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">📥 응답 데이터</h2>
+                        <div id="statusBadge"></div>
+                    </div>
+                    <div class="bg-gray-900 text-green-400 p-4 rounded overflow-auto max-h-96 json-viewer">
+                        <pre id="responseData">API 응답이 여기에 표시됩니다.</pre>
+                    </div>
+                </div>
+
+                <!-- 생성된 스토리 미리보기 -->
+                <div id="storyPreview" class="bg-white rounded-lg shadow-md p-6 hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">📖 생성된 스토리</h2>
+                        <div class="flex gap-2">
+                            <button id="continueStoryBtn" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded transition duration-200">
+                                📝 이어쓰기
+                            </button>
+                            <button id="splitSceneBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded transition duration-200">
+                                🎬 장면 나누기
+                            </button>
+                            <button id="refineStoryBtn" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded transition duration-200">
+                                ✨ 가공하기
+                            </button>
+                        </div>
+                    </div>
+                    <div class="prose max-w-none">
+                        <div id="storyContent" class="whitespace-pre-wrap text-gray-700 leading-relaxed"></div>
+                    </div>
+                </div>
+
+                <!-- 이어쓰기 API 요청/응답 -->
+                <div id="continueStoryApiSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">📝 이어쓰기 API</h2>
+                    
+                    <!-- 요청 데이터 -->
+                    <div class="mb-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">📤 요청 데이터</h3>
+                        <div class="bg-gray-900 text-green-400 p-3 rounded overflow-auto max-h-48 json-viewer">
+                            <pre id="continueStoryRequestData">-</pre>
+                        </div>
+                    </div>
+                    
+                    <!-- 응답 데이터 -->
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-gray-700">📥 응답 데이터</h3>
+                            <span id="continueStoryStatusBadge"></span>
+                        </div>
+                        <div class="bg-gray-900 text-green-400 p-3 rounded overflow-auto max-h-48 json-viewer">
+                            <pre id="continueStoryResponseData">-</pre>
+                        </div>
+                    </div>
+                    
+                    <!-- 결과 미리보기 -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-gray-700">📝 후속 스토리</h3>
+                            <div class="flex gap-2">
+                                <button id="copyContinueStoryBtn" class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded transition duration-200">
+                                    📋 복사
+                                </button>
+                                <button id="useContinuedStoryBtn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded transition duration-200">
+                                    ↩️ 이 스토리 사용
+                                </button>
+                            </div>
+                        </div>
+                        <div id="continueStoryContent" class="whitespace-pre-wrap text-gray-700 leading-relaxed bg-gray-50 p-4 rounded border text-sm max-h-64 overflow-auto"></div>
+                    </div>
+                    <div id="continueStoryTokenInfo" class="mt-3 text-xs text-gray-500"></div>
+                </div>
+
+                <!-- 장면 나누기 API 요청/응답 -->
+                <div id="splitSceneApiSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">🎬 장면 나누기 API</h2>
+                    
+                    <!-- 요청 데이터 -->
+                    <div class="mb-4">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-2">📤 요청 데이터</h3>
+                        <div class="bg-gray-900 text-green-400 p-3 rounded overflow-auto max-h-48 json-viewer">
+                            <pre id="splitSceneRequestData">-</pre>
+                        </div>
+                    </div>
+                    
+                    <!-- 응답 데이터 -->
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-gray-700">📥 응답 데이터</h3>
+                            <span id="splitSceneStatusBadge"></span>
+                        </div>
+                        <div class="bg-gray-900 text-green-400 p-3 rounded overflow-auto max-h-48 json-viewer">
+                            <pre id="splitSceneResponseData">-</pre>
+                        </div>
+                    </div>
+                    
+                    <!-- 결과 미리보기 -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-gray-700">📝 결과 미리보기</h3>
+                            <button id="copySplitSceneBtn" class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded transition duration-200">
+                                📋 복사
+                            </button>
+                        </div>
+                        <div id="splitSceneContent" class="whitespace-pre-wrap text-gray-700 leading-relaxed bg-gray-50 p-4 rounded border text-sm max-h-64 overflow-auto"></div>
+                    </div>
+                    <div id="splitSceneTokenInfo" class="mt-3 text-xs text-gray-500"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let selectedModel = 'claude-4-5';
+        let selectedGenre = '';
+        let selectedLevel = '2';
+        let selectedLength = 'medium';
+        let isAdultContent = false;
+
+        // 모델 버튼 이벤트
+        document.querySelectorAll('.model-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('btn-active', 'bg-blue-500', 'text-white'));
+                this.classList.add('btn-active', 'bg-blue-500', 'text-white');
+                selectedModel = this.dataset.model;
+            });
+        });
+
+        // 장르 버튼 이벤트
+        document.querySelectorAll('.genre-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.genre-btn').forEach(b => b.classList.remove('btn-active', 'bg-blue-500', 'text-white'));
+                this.classList.add('btn-active', 'bg-blue-500', 'text-white');
+                selectedGenre = this.dataset.genre;
+                document.getElementById('customGenre').value = '';
+            });
+        });
+
+        // 수위 버튼 이벤트
+        document.querySelectorAll('.level-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const level = this.dataset.level;
+                document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('btn-active'));
+                this.classList.add('btn-active');
+                selectedLevel = level;
+                
+                // 매운맛(3)일 때 🔞 버튼 표시
+                const adultBtn = document.getElementById('adultButton');
+                if (level === '3') {
+                    adultBtn.classList.remove('hidden');
+                } else {
+                    adultBtn.classList.add('hidden');
+                    isAdultContent = false;
+                    adultBtn.classList.remove('btn-active');
+                }
+            });
+        });
+
+        // 성인 콘텐츠 버튼
+        document.getElementById('adultButton').addEventListener('click', function() {
+            isAdultContent = !isAdultContent;
+            this.classList.toggle('btn-active');
+        });
+
+        // 길이 버튼 이벤트
+        document.querySelectorAll('.length-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.length-btn').forEach(b => b.classList.remove('btn-active'));
+                this.classList.add('btn-active');
+                selectedLength = this.dataset.length;
+            });
+        });
+
+        // 페르소나 타입 변경 시 광고 상품 필드 표시/숨김
+        document.getElementById('personaType').addEventListener('change', function() {
+            const adProductField = document.getElementById('adProductField');
+            if (this.value === '간접광고') {
+                adProductField.classList.remove('hidden');
+            } else {
+                adProductField.classList.add('hidden');
+            }
+        });
+
+        // 추가 요청사항 체크박스
+        document.getElementById('additionalRequestCheck').addEventListener('change', function() {
+            const field = document.getElementById('additionalRequestField');
+            if (this.checked) {
+                field.classList.remove('hidden');
+            } else {
+                field.classList.add('hidden');
+            }
+        });
+
+        // 폼 제출
+        document.getElementById('apiTestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const button = document.getElementById('testButton');
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> 처리중...';
+            
+            // 장르 처리 (직접 입력이 있으면 우선)
+            const customGenre = document.getElementById('customGenre').value.trim();
+            const finalGenre = customGenre || selectedGenre;
+            
+            // 요청 데이터 구성
+            const requestData = {
+                personaType: document.getElementById('personaType').value,
+                topic: document.getElementById('topic').value,
+                genre: finalGenre,
+                toneType: document.getElementById('toneType').value,
+                level: selectedLevel,
+                length: selectedLength,
+                model: selectedModel,
+                storyMood: document.getElementById('storyMood').value,
+                endingStyle: document.getElementById('endingStyle').value,
+                narratorGender: document.getElementById('narratorGender').value,
+                narratorAge: document.getElementById('narratorAge').value,
+                includeComments: document.getElementById('includeComments').checked,
+                includeQuestions: document.getElementById('includeQuestions').checked,
+                splitEnding: document.getElementById('splitEnding').checked,
+                limitCharacters: document.getElementById('limitCharacters').checked,
+                isAdultContent: isAdultContent
+            };
+
+            // 간접광고인 경우 adProduct 추가
+            if (requestData.personaType === '간접광고') {
+                requestData.adProduct = document.getElementById('adProduct').value;
+            }
+
+            // 추가 요청사항이 있으면 추가
+            if (document.getElementById('additionalRequestCheck').checked) {
+                requestData.additionalRequest = document.getElementById('additionalRequest').value;
+            }
+
+            // 요청 데이터 표시
+            document.getElementById('requestData').textContent = JSON.stringify(requestData, null, 2);
+            
+            // OpenRouter API 키 확인
+            const openrouterKey = document.getElementById('openrouterKey').value.trim();
+            if (!openrouterKey) {
+                alert('⚠️ OpenRouter API 키를 입력해주세요!\n\nOpenRouter API 키는 필수 입력 항목입니다.');
+                button.disabled = false;
+                button.innerHTML = originalText;
+                return;
+            }
+            
+            // 헤더 구성
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-API-Key': document.getElementById('apiKey').value,
+                'X-OpenRouter-Key': openrouterKey
+            };
+
+            try {
+                console.log('Sending request to api.php');
+                console.log('Headers:', headers);
+                console.log('Request Data:', requestData);
+                
+                const response = await fetch('../api.php', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(requestData)
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                
+                const responseText = await response.text();
+                console.log('Response text:', responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    throw new Error('Invalid JSON response: ' + responseText.substring(0, 200));
+                }
+                
+                // 상태 배지 업데이트
+                const statusBadge = document.getElementById('statusBadge');
+                if (response.ok) {
+                    statusBadge.innerHTML = '<span class="px-3 py-1 bg-green-100 text-green-800 text-sm font-semibold rounded-full">✓ 성공 (' + response.status + ')</span>';
+                } else {
+                    statusBadge.innerHTML = '<span class="px-3 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded-full">✗ 실패 (' + response.status + ')</span>';
+                }
+                
+                // 응답 데이터 표시
+                document.getElementById('responseData').textContent = JSON.stringify(data, null, 2);
+                
+                // 성공한 경우 스토리 미리보기 표시
+                if (response.ok && data.content) {
+                    document.getElementById('storyPreview').classList.remove('hidden');
+                    document.getElementById('storyContent').textContent = data.content;
+                } else {
+                    document.getElementById('storyPreview').classList.add('hidden');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('statusBadge').innerHTML = '<span class="px-3 py-1 bg-red-100 text-red-800 text-sm font-semibold rounded-full">✗ 에러</span>';
+                document.getElementById('responseData').textContent = 'Error: ' + error.message + '\n\n' + error.stack;
+                document.getElementById('storyPreview').classList.add('hidden');
+                
+                // 에러 알림
+                alert('API 호출 중 오류가 발생했습니다. 브라우저 콘솔(F12)을 확인하세요.\n\nError: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+
+        // 현재 스토리 제목 저장용 변수
+        let currentStoryTitle = '';
+        
+        // 이어쓰기
+        document.getElementById('continueStoryBtn').addEventListener('click', async function() {
+            const storyContent = document.getElementById('storyContent').textContent;
+            const openrouterKey = document.getElementById('openrouterKey').value.trim();
+            
+            if (!storyContent) {
+                alert('이어쓸 스토리가 없습니다.');
+                return;
+            }
+            
+            if (!openrouterKey) {
+                alert('OpenRouter API 키를 입력해주세요.');
+                return;
+            }
+            
+            // 제목 추출 (첫 번째 줄)
+            const lines = storyContent.split('\n');
+            const title = lines[0] || '제목없음';
+            
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> 처리중...';
+            
+            // 요청 데이터 구성
+            const requestData = {
+                _openrouter_key: openrouterKey,
+                previousStory: storyContent,
+                previousTitle: title,
+                model: selectedModel,
+                level: selectedLevel
+            };
+            
+            // API 섹션 표시 및 요청 데이터 표시
+            document.getElementById('continueStoryApiSection').classList.remove('hidden');
+            document.getElementById('continueStoryRequestData').textContent = JSON.stringify({
+                ...requestData,
+                _openrouter_key: '***hidden***',
+                previousStory: requestData.previousStory.substring(0, 100) + '...'
+            }, null, 2);
+            document.getElementById('continueStoryResponseData').textContent = '요청 중...';
+            document.getElementById('continueStoryStatusBadge').innerHTML = '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">⏳ 처리중</span>';
+            
+            try {
+                const response = await fetch('../continue_story.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                // 응답 데이터 표시
+                document.getElementById('continueStoryResponseData').textContent = JSON.stringify(result, null, 2);
+                
+                if (result.content) {
+                    document.getElementById('continueStoryStatusBadge').innerHTML = '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">✓ 성공</span>';
+                    document.getElementById('continueStoryContent').textContent = result.content;
+                    
+                    // 토큰 정보 표시
+                    if (result.token_info) {
+                        document.getElementById('continueStoryTokenInfo').innerHTML = `
+                            <span class="text-gray-600">모델: ${result.metadata?.model || selectedModel}</span> | 
+                            <span class="text-blue-600">Claude 입력: ${result.token_info.claude?.input_tokens || 0}</span> | 
+                            <span class="text-green-600">Claude 출력: ${result.token_info.claude?.output_tokens || 0}</span>
+                        `;
+                    }
+                } else {
+                    document.getElementById('continueStoryStatusBadge').innerHTML = '<span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">✗ 실패</span>';
+                    document.getElementById('continueStoryContent').textContent = '오류: ' + (result.error || '알 수 없는 오류');
+                }
+            } catch (error) {
+                document.getElementById('continueStoryStatusBadge').innerHTML = '<span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">✗ 에러</span>';
+                document.getElementById('continueStoryResponseData').textContent = 'Error: ' + error.message;
+                document.getElementById('continueStoryContent').textContent = '오류 발생: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+        
+        // 이어쓰기 결과 복사
+        document.getElementById('copyContinueStoryBtn').addEventListener('click', function() {
+            const content = document.getElementById('continueStoryContent').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalText = this.innerHTML;
+                this.innerHTML = '✓ 복사됨';
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                }, 2000);
+            });
+        });
+        
+        // 이어쓴 스토리를 메인 스토리로 사용
+        document.getElementById('useContinuedStoryBtn').addEventListener('click', function() {
+            const continuedContent = document.getElementById('continueStoryContent').textContent;
+            if (continuedContent && !continuedContent.startsWith('오류')) {
+                document.getElementById('storyContent').textContent = continuedContent;
+                alert('이어쓴 스토리가 메인 스토리로 설정되었습니다.\n이제 이 스토리로 장면 나누기, 가공하기, 추가 이어쓰기를 할 수 있습니다.');
+            }
+        });
+
+        // 장면 나누기
+        document.getElementById('splitSceneBtn').addEventListener('click', async function() {
+            const storyContent = document.getElementById('storyContent').textContent;
+            const openrouterKey = document.getElementById('openrouterKey').value.trim();
+            
+            if (!storyContent) {
+                alert('장면을 나눌 스토리가 없습니다.');
+                return;
+            }
+            
+            if (!openrouterKey) {
+                alert('OpenRouter API 키를 입력해주세요.');
+                return;
+            }
+            
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> 처리중...';
+            
+            // 요청 데이터 구성
+            const requestData = {
+                _openrouter_key: openrouterKey,
+                story: storyContent
+            };
+            
+            // API 섹션 표시 및 요청 데이터 표시
+            document.getElementById('splitSceneApiSection').classList.remove('hidden');
+            document.getElementById('splitSceneRequestData').textContent = JSON.stringify({
+                ...requestData,
+                _openrouter_key: '***hidden***'  // 보안을 위해 키 숨김
+            }, null, 2);
+            document.getElementById('splitSceneResponseData').textContent = '요청 중...';
+            document.getElementById('splitSceneStatusBadge').innerHTML = '<span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">⏳ 처리중</span>';
+            
+            try {
+                const response = await fetch('../split_scene.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                // 응답 데이터 표시
+                document.getElementById('splitSceneResponseData').textContent = JSON.stringify(result, null, 2);
+                
+                if (result.success) {
+                    document.getElementById('splitSceneStatusBadge').innerHTML = '<span class="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">✓ 성공</span>';
+                    document.getElementById('splitSceneContent').textContent = result.content;
+                    
+                    // 토큰 정보 표시
+                    if (result.token_info) {
+                        document.getElementById('splitSceneTokenInfo').innerHTML = `
+                            <span class="text-gray-600">모델: ${result.model}</span> | 
+                            <span class="text-blue-600">입력: ${result.token_info.input_tokens} 토큰</span> | 
+                            <span class="text-green-600">출력: ${result.token_info.output_tokens} 토큰</span>
+                        `;
+                    }
+                } else {
+                    document.getElementById('splitSceneStatusBadge').innerHTML = '<span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">✗ 실패</span>';
+                    document.getElementById('splitSceneContent').textContent = '오류: ' + (result.error || '알 수 없는 오류');
+                }
+            } catch (error) {
+                document.getElementById('splitSceneStatusBadge').innerHTML = '<span class="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full">✗ 에러</span>';
+                document.getElementById('splitSceneResponseData').textContent = 'Error: ' + error.message;
+                document.getElementById('splitSceneContent').textContent = '오류 발생: ' + error.message;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        });
+        
+        // 장면 나누기 결과 복사
+        document.getElementById('copySplitSceneBtn').addEventListener('click', function() {
+            const content = document.getElementById('splitSceneContent').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalText = this.innerHTML;
+                this.innerHTML = '✓ 복사됨';
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                }, 2000);
+            });
+        });
+        
+        // 가공하기 (refine_story.html로 이동)
+        document.getElementById('refineStoryBtn').addEventListener('click', function() {
+            const storyContent = document.getElementById('storyContent').textContent;
+            
+            if (!storyContent) {
+                alert('가공할 스토리가 없습니다.');
+                return;
+            }
+            
+            // localStorage에 데이터 저장
+            const refineData = {
+                content: storyContent
+            };
+            localStorage.setItem('storyToRefine', JSON.stringify(refineData));
+            
+            // refine_story.html로 이동
+            window.location.href = 'refine_story.html';
+        });
+    </script>
+</body>
+</html>

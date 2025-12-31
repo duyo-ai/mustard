@@ -1,0 +1,26 @@
+안녕하세요? 늦어서 송구합니다~ 우선 장면 분할 api는
+
+엔드포인트 https://yumeta.kr/duyo_api/split_scene.php 로 호출하시면 됩니다.
+
+{
+  "_openrouter_key": "sk-or-v1-xxxxx",
+  "story": "오늘 회사에서 있었던 일인데… (이야기 내용)"
+}
+
+story 파라미터에 생성된 내용을 넣어주시면 됩니다. 통합하기보다는 로직상 분리하는 것이 좋다고 하셔서 그렇게 했습니다 ^^
+
+리스폰스 예시는 다음과 같습니다.
+
+{
+  "success": true,
+  "content": "scene 1\n오늘 회사에서\n있었던 일인데...\n\nscene 2\n점심시간에\n...",
+  "usage": {
+    "prompt_tokens": 500,
+    "completion_tokens": 800
+  },
+  "model": "x-ai/grok-4-fast",
+  "token_info": {
+    "input_tokens": 500,
+    "output_tokens": 800
+  }
+}

@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>장소 추가 API 테스트</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .scene-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .scene-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .add-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .add-btn:hover {
+            background: #45a049;
+        }
+
+        .remove-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .remove-btn:hover {
+            background: #da190b;
+        }
+
+        .process-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        .process-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .process-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .load-example-btn {
+            background: #FF9800;
+            color: white;
+        }
+
+        .load-example-btn:hover {
+            background: #F57C00;
+        }
+
+        .output-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            min-height: 200px;
+            display: none;
+        }
+
+        .output-section.show {
+            display: block;
+        }
+
+        .io-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #263238;
+            border-radius: 10px;
+        }
+
+        .io-header {
+            color: #aed581;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .io-url {
+            color: #64B5F6;
+            font-size: 12px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .json-display {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            line-height: 1.5;
+        }
+
+        /* JSON 구문 강조 */
+        .json-key {
+            color: #9CDCFE;
+        }
+
+        .json-string {
+            color: #CE9178;
+        }
+
+        .json-number {
+            color: #B5CEA8;
+        }
+
+        .json-boolean {
+            color: #569CD6;
+        }
+
+        .json-null {
+            color: #569CD6;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 5px 5px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        .copy-btn {
+            padding: 8px 16px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .copy-btn:hover {
+            background: #1976D2;
+        }
+
+        .scene-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .location-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .scene-text {
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .raw-output {
+            background: #263238;
+            color: #aed581;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-top: 20px;
+        }
+
+        .token-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+        }
+
+        .token-item {
+            text-align: center;
+        }
+
+        .token-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .token-value {
+            color: #667eea;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            border-radius: 8px;
+            color: #c62828;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ 장소 추가 API 테스트</h1>
+        
+        <div class="input-section">
+            <h2 style="margin-bottom: 15px;">장면 입력</h2>
+            <div id="sceneInputs">
+                <input type="text" class="scene-input" placeholder="장면 1을 입력하세요..." value="">
+            </div>
+            
+            <div class="button-group">
+                <button class="add-btn" onclick="addSceneInput()">+ 장면 추가</button>
+                <button class="remove-btn" onclick="removeSceneInput()">- 장면 제거</button>
+                <button class="load-example-btn" onclick="loadExample()">예시 불러오기</button>
+            </div>
+            
+            <button class="process-btn" onclick="processScenes()" id="processBtn">
+                장소 정보 추가하기
+            </button>
+        </div>
+
+        <div class="output-section" id="outputSection">
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('result')">처리 결과</button>
+                <button class="tab-btn" onclick="switchTab('request')">요청 (Request)</button>
+                <button class="tab-btn" onclick="switchTab('response')">응답 (Response)</button>
+            </div>
+
+            <!-- 처리 결과 탭 -->
+            <div id="resultTab" class="tab-content active">
+                <div class="output-header">
+                    <h2>처리된 장면</h2>
+                    <button class="copy-btn" onclick="copyToClipboard()">결과 복사</button>
+                </div>
+                <div id="processedScenes"></div>
+                
+                <div class="token-info" id="tokenInfo"></div>
+                
+                <h3 style="margin-top: 30px; margin-bottom: 10px;">GPT 원시 출력</h3>
+                <div class="raw-output" id="rawOutput"></div>
+            </div>
+
+            <!-- 요청 탭 -->
+            <div id="requestTab" class="tab-content">
+                <div class="io-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div class="io-header">HTTP Request</div>
+                            <div class="io-url">POST <span id="apiUrl"></span></div>
+                            <div class="io-header">Content-Type: application/json</div>
+                        </div>
+                        <button class="copy-btn" onclick="copyJSON('request')" style="margin-bottom: 10px;">복사</button>
+                    </div>
+                    <div class="json-display" id="requestJson"></div>
+                </div>
+            </div>
+
+            <!-- 응답 탭 -->
+            <div id="responseTab" class="tab-content">
+                <div class="io-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div class="io-header">HTTP Response</div>
+                            <div class="io-url">Status: <span id="statusCode">200 OK</span></div>
+                            <div class="io-header">Content-Type: application/json</div>
+                        </div>
+                        <button class="copy-btn" onclick="copyJSON('response')" style="margin-bottom: 10px;">복사</button>
+                    </div>
+                    <div class="json-display" id="responseJson"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorSection"></div>
+    </div>
+
+    <script>
+        let responseData = null;
+        let requestData = null;
+
+        function switchTab(tabName) {
+            // 모든 탭 버튼과 콘텐츠 비활성화
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // 선택된 탭 활성화
+            if (tabName === 'result') {
+                document.querySelector('.tab-btn:nth-child(1)').classList.add('active');
+                document.getElementById('resultTab').classList.add('active');
+            } else if (tabName === 'request') {
+                document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+                document.getElementById('requestTab').classList.add('active');
+            } else if (tabName === 'response') {
+                document.querySelector('.tab-btn:nth-child(3)').classList.add('active');
+                document.getElementById('responseTab').classList.add('active');
+            }
+        }
+
+        function syntaxHighlight(json) {
+            if (typeof json != 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+            
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        function addSceneInput() {
+            const container = document.getElementById('sceneInputs');
+            const newInput = document.createElement('input');
+            newInput.type = 'text';
+            newInput.className = 'scene-input';
+            newInput.placeholder = `장면 ${container.children.length + 1}을 입력하세요...`;
+            container.appendChild(newInput);
+        }
+
+        function removeSceneInput() {
+            const container = document.getElementById('sceneInputs');
+            if (container.children.length > 1) {
+                container.removeChild(container.lastElementChild);
+            }
+        }
+
+        function loadExample() {
+            const examples = [
+                "오늘 회사에서 진짜 미친 일을 겪었다. 나는 평범한 회사원인데, 오늘 아침 출근하니까 내 자리에 있던 컴퓨터가 다른 걸로 바뀌어 있더라.",
+                "팀장님이 부르시더니 전 직원 퇴사해서 그 컴퓨터 쓰라고 하시는 거임.",
+                "근데 그 컴퓨터 켜보니까 전 직원이 작업하던 파일들이 그대로 있는데, 거기에 회사 비리 관련 자료들이 잔뜩 있었음.",
+                "일단 USB에 백업해두고 팀장님께 보고했더니 얼굴이 하얗게 질리더라.",
+                "지금 회사 난리남. 감사팀이랑 경찰까지 왔음.",
+                "나는 그냥 신고자 보호 프로그램 받고 집에 왔는데, 내일부터 출근 안 해도 된대."
+            ];
+
+            const container = document.getElementById('sceneInputs');
+            container.innerHTML = '';
+            
+            examples.forEach(example => {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'scene-input';
+                input.value = example;
+                container.appendChild(input);
+            });
+        }
+
+        async function processScenes() {
+            const inputs = document.querySelectorAll('.scene-input');
+            const scenes = Array.from(inputs)
+                .map(input => input.value.trim())
+                .filter(value => value !== '');
+
+            if (scenes.length === 0) {
+                showError('최소 1개 이상의 장면을 입력해주세요.');
+                return;
+            }
+
+            // 요청 데이터 저장
+            requestData = { scenes: scenes };
+
+            const processBtn = document.getElementById('processBtn');
+            const outputSection = document.getElementById('outputSection');
+            const errorSection = document.getElementById('errorSection');
+            
+            processBtn.disabled = true;
+            processBtn.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            errorSection.innerHTML = '';
+            outputSection.classList.remove('show');
+
+            // API URL 표시
+            const apiUrl = window.location.origin + window.location.pathname.replace(/[^\/]*$/, '') + 'get_location.php';
+            document.getElementById('apiUrl').textContent = apiUrl;
+            
+            // 요청 JSON 표시 (구문 강조 적용)
+            document.getElementById('requestJson').innerHTML = syntaxHighlight(requestData);
+
+            // 실행 시간 측정 시작
+            const startTime = performance.now();
+
+            try {
+                const response = await fetch('../get_location.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                // 상태 코드 표시
+                document.getElementById('statusCode').textContent = response.status + ' ' + response.statusText;
+                
+                const data = await response.json();
+                responseData = data;
+                
+                // 실행 시간 계산
+                const endTime = performance.now();
+                const executionTime = ((endTime - startTime) / 1000).toFixed(2);
+                responseData.executionTime = executionTime;
+
+                // 응답 JSON 표시 (구문 강조 적용)
+                document.getElementById('responseJson').innerHTML = syntaxHighlight(data);
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                displayResults(data, executionTime);
+                outputSection.classList.add('show');
+                
+            } catch (error) {
+                showError('처리 중 오류가 발생했습니다: ' + error.message);
+                // 오류 발생 시에도 응답 표시
+                if (error.message.includes('JSON')) {
+                    document.getElementById('responseJson').innerHTML = syntaxHighlight({
+                        error: '응답 파싱 오류',
+                        message: error.message
+                    });
+                } else if (responseData) {
+                    // 에러가 있어도 응답 데이터가 있으면 표시
+                    outputSection.classList.add('show');
+                }
+            } finally {
+                processBtn.disabled = false;
+                processBtn.textContent = '장소 정보 추가하기';
+            }
+        }
+
+        function displayResults(data, executionTime) {
+            // 처리된 장면 표시
+            const processedScenesDiv = document.getElementById('processedScenes');
+            processedScenesDiv.innerHTML = '';
+            
+            if (data.processed_scenes && data.processed_scenes.length > 0) {
+                data.processed_scenes.forEach(scene => {
+                    const sceneItem = document.createElement('div');
+                    sceneItem.className = 'scene-item';
+                    
+                    if (scene.location) {
+                        sceneItem.innerHTML = `
+                            <div class="location-tag">${scene.location}</div>
+                            <div class="scene-text">${scene.scene}</div>
+                        `;
+                    } else {
+                        sceneItem.innerHTML = `<div class="scene-text">${scene.scene}</div>`;
+                    }
+                    
+                    processedScenesDiv.appendChild(sceneItem);
+                });
+            }
+
+            // 토큰 정보 표시
+            if (data.token_info) {
+                const tokenInfoDiv = document.getElementById('tokenInfo');
+                tokenInfoDiv.innerHTML = `
+                    <div class="token-item">
+                        <div class="token-label">입력 토큰</div>
+                        <div class="token-value">${data.token_info.input_tokens}</div>
+                    </div>
+                    <div class="token-item">
+                        <div class="token-label">출력 토큰</div>
+                        <div class="token-value">${data.token_info.output_tokens}</div>
+                    </div>
+                    <div class="token-item">
+                        <div class="token-label">총 토큰</div>
+                        <div class="token-value">${data.token_info.total_tokens}</div>
+                    </div>
+                    <div class="token-item">
+                        <div class="token-label">실행 시간</div>
+                        <div class="token-value">${executionTime}초</div>
+                    </div>
+                `;
+            }
+
+            // 원시 출력 표시
+            const rawOutputDiv = document.getElementById('rawOutput');
+            rawOutputDiv.textContent = data.raw_output || '';
+        }
+
+        function copyToClipboard() {
+            if (responseData && responseData.raw_output) {
+                navigator.clipboard.writeText(responseData.raw_output).then(() => {
+                    alert('GPT 출력이 클립보드에 복사되었습니다!');
+                }).catch(err => {
+                    alert('복사 실패: ' + err);
+                });
+            }
+        }
+
+        function copyJSON(type) {
+            let dataToCopy = '';
+            
+            if (type === 'request' && requestData) {
+                dataToCopy = JSON.stringify(requestData, null, 2);
+            } else if (type === 'response' && responseData) {
+                dataToCopy = JSON.stringify(responseData, null, 2);
+            }
+            
+            if (dataToCopy) {
+                navigator.clipboard.writeText(dataToCopy).then(() => {
+                    alert(`${type === 'request' ? '요청' : '응답'} JSON이 클립보드에 복사되었습니다!`);
+                }).catch(err => {
+                    alert('복사 실패: ' + err);
+                });
+            } else {
+                alert('복사할 데이터가 없습니다.');
+            }
+        }
+
+        function showError(message) {
+            const errorSection = document.getElementById('errorSection');
+            errorSection.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        // 페이지 로드 시 예시 자동 로드
+        window.onload = function() {
+            loadExample();
+        };
+    </script>
+</body>
+</html>

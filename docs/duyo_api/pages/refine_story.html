@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이야기 가공하기 - Duyo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .scene-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .scene-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 0.5rem;
+        }
+        .scene-location {
+            color: #4b5563;
+            font-size: 0.875rem;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+        .character-list {
+            background-color: #f3f4f6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .character-item {
+            color: #4b5563;
+            margin-bottom: 0.25rem;
+        }
+        .dialogue {
+            background-color: #e8f4ff;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem;
+            margin: 0.5rem 0;
+            display: inline-block;
+        }
+        
+        .speaker {
+            color: #2563eb;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        /* 채팅 메시지 스타일 */
+        .chat-message-user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            border-bottom-right-radius: 0.25rem;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .chat-message-ai {
+            background-color: #ffffff;
+            color: #1f2937;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            border-bottom-left-radius: 0.25rem;
+            max-width: 80%;
+            word-wrap: break-word;
+            border: 1px solid #e5e7eb;
+        }
+        
+        /* 스크롤바 스타일 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* 입력창 포커스 스타일 */
+        .chat-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* 로딩 애니메이션 */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 1rem;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #9ca3af;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen overflow-hidden">
+    <div class="h-screen flex flex-col">
+        <!-- 메인 컨텐츠 -->
+        <main class="flex-1 flex overflow-hidden">
+            <!-- 좌측: 이야기 영역 -->
+            <div class="w-2/3 bg-white border-r border-gray-200 flex flex-col">
+                <!-- 이야기 제목 -->
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.location.href='api_test.html'" class="text-gray-600 hover:text-gray-900 transition-colors" title="메인으로 돌아가기">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                </svg>
+                            </button>
+                            <h2 id="storyTitle" class="text-2xl font-bold text-gray-900">이야기 제목</h2>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="undoBtn" class="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent" title="이전 단계로" disabled>
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                                </svg>
+                            </button>
+                            <button id="redoBtn" class="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-gray-600 disabled:hover:bg-transparent" title="다음 단계로" disabled>
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"/>
+                                </svg>
+                            </button>
+                            <button id="copyStoryBtnTop" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors" title="복사하기">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                            </button>
+                            <button id="resetStoryBtnTop" class="p-2 text-gray-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="원본으로 초기화">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 이야기 내용 -->
+                <div class="flex-1 flex flex-col overflow-hidden bg-gray-50">
+                    <!-- HOOK 섹션 (15% 높이) -->
+                    <div class="flex flex-col border-b border-gray-200" style="flex: 15 1 0;">
+                        <div class="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold text-gray-700 uppercase tracking-wide">HOOK</span>
+                                <span class="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">0-3초</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <select id="hookTypeSelect" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500 hover:border-gray-400 transition-colors">
+                                    <option value="자동" selected>자동</option>
+                                    <option value="질문형">질문형</option>
+                                    <option value="충격사실형">충격사실형</option>
+                                    <option value="대비형">대비형</option>
+                                    <option value="스토리 티저형">스토리 티저형</option>
+                                    <option value="통계 강조형">통계 강조형</option>
+                                    <option value="행동 유도형">행동 유도형</option>
+                                </select>
+                                <button id="generateHookBtn" class="text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style="padding: 4px 8px;">자동생성</button>
+                            </div>
+                        </div>
+                        <div class="flex-1 p-3 bg-white">
+                            <textarea 
+                                id="hookContent" 
+                                class="w-full h-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg resize-none focus:outline-none focus:bg-white focus:border-gray-400 transition-colors overflow-y-auto"
+                                placeholder="독자의 관심을 끄는 후크를 입력하세요..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- BODY 섹션 (70% 높이) -->
+                    <div class="flex flex-col border-b border-gray-200" style="flex: 70 1 0;">
+                        <div class="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold text-gray-700 uppercase tracking-wide">BODY</span>
+                                <span class="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">3-25초</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 p-3 bg-white">
+                            <textarea 
+                                id="storyContent" 
+                                class="w-full h-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg resize-none focus:outline-none focus:bg-white focus:border-gray-400 transition-colors leading-relaxed overflow-y-auto"
+                                placeholder="이야기 내용이 여기에 표시됩니다..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- CTA 섹션 (15% 높이) -->
+                    <div class="flex flex-col" style="flex: 15 1 0;">
+                        <div class="px-4 py-2 bg-gray-100 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-semibold text-gray-700 uppercase tracking-wide">CTA</span>
+                                <span class="text-xs px-2 py-0.5 bg-gray-200 text-gray-600 rounded-full">25-30초</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <select id="ctaTypeSelect" class="text-xs bg-white border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500 hover:border-gray-400 transition-colors">
+                                    <option value="자동" selected>자동</option>
+                                    <option value="참여 유도형">참여 유도형</option>
+                                    <option value="구독/팔로우 유형">구독/팔로우</option>
+                                    <option value="확장 시청 유도형">확장 시청 유도</option>
+                                    <option value="행동 전환형 (외부 유도)">외부 유도</option>
+                                    <option value="즉각 행동 촉구형 (FOMO/긴급성)">긴급성 촉구</option>
+                                </select>
+                                <button id="generateCtaBtn" class="text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style="padding: 4px 8px;">자동생성</button>
+                            </div>
+                        </div>
+                        <div class="flex-1 p-3 bg-white">
+                            <textarea 
+                                id="ctaContent" 
+                                class="w-full h-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg resize-none focus:outline-none focus:bg-white focus:border-gray-400 transition-colors overflow-y-auto"
+                                placeholder="행동 유도 메시지(Call To Action)를 입력하세요..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우측: AI 대화 영역 -->
+            <div class="w-1/3 bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col">
+                <!-- 대화 헤더 -->
+                <div class="p-4 bg-white border-b border-gray-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-gray-900">AI 어시스턴트</h3>
+                                <p class="text-sm text-gray-500">이야기를 AI와 함께 수정하세요</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="toggleApiLogBtn" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-xs flex items-center gap-1 border border-gray-200" title="API 로그 토글">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                                </svg>
+                                API 로그
+                            </button>
+                            <button id="newChatBtn" class="px-3 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-xs flex items-center gap-1 border border-gray-200" title="새 채팅">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                새 채팅
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- OpenRouter API 키 입력 -->
+                    <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">🔑 OpenRouter API Key *</label>
+                        <input type="text" id="openrouterKey" placeholder="sk-or-v1-... (필수)" 
+                               class="w-full px-3 py-2 border border-yellow-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    </div>
+                </div>
+                
+                <!-- API 로그 영역 (토글) -->
+                <div id="apiLogSection" class="hidden border-b border-gray-200 bg-gray-900 max-h-48 overflow-auto">
+                    <div class="p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-gray-400 font-semibold">📡 API 요청/응답 로그</span>
+                            <button id="clearApiLogBtn" class="text-xs text-gray-500 hover:text-gray-300">지우기</button>
+                        </div>
+                        <pre id="apiLogContent" class="text-xs text-green-400 font-mono whitespace-pre-wrap">로그가 여기에 표시됩니다...</pre>
+                    </div>
+                </div>
+                
+                <!-- 대화 메시지 영역 -->
+                <div id="chatMessages" class="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                    <!-- 웰컴 메시지 -->
+                    <div class="flex justify-start">
+                        <div class="chat-message-ai">
+                            <p>안녕하세요! 이야기를 어떻게 수정하거나 개선하고 싶으신가요?</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 메시지들이 여기에 동적으로 추가됩니다 -->
+                </div>
+                
+                <!-- 입력 영역 -->
+                <div class="p-4 bg-white border-t border-gray-200">
+                    <!-- 빠른 명령어 버튼들 -->
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <button class="quick-command-btn px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors">
+                            더 재미있게
+                        </button>
+                        <button class="quick-command-btn px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors">
+                            감정 표현 강화
+                        </button>
+                        <button class="quick-command-btn px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors">
+                            문장 간결하게
+                        </button>
+                        <button class="quick-command-btn px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors">
+                            맞춤법 검사
+                        </button>
+                    </div>
+                    
+                    <!-- AI 모델 선택 -->
+                    <div class="flex items-center gap-2 mb-3 px-1">
+                        <label for="aiModelSelect" class="text-sm font-medium text-gray-700 flex items-center gap-1.5 whitespace-nowrap">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                            </svg>
+                            AI 모델
+                        </label>
+                        <select id="aiModelSelect" class="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all cursor-pointer hover:border-gray-400">
+                            <option value="claude-4.5" selected>Claude 4.5</option>
+                            <option value="gpt-4o">GPT-4o</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 메시지 입력 폼 -->
+                    <div class="flex gap-2 items-stretch">
+                        <textarea 
+                            id="messageInput" 
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-lg chat-input resize-none focus:border-blue-500 transition-colors overflow-y-auto"
+                            placeholder="AI에게 수정 요청을 입력하세요..."
+                            rows="2"
+                            style="max-height: 120px;"></textarea>
+                        <button 
+                            id="sendMessageBtn" 
+                            class="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 전역 변수
+        let storyData = null;
+        let originalStory = null; // 원본 이야기 저장
+        let storyHistory = []; // 수정 히스토리 스택
+        let redoHistory = []; // 다시 실행 히스토리 스택
+        
+        // API 로그 함수
+        function appendApiLog(type, data) {
+            const logContent = document.getElementById('apiLogContent');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type}\n${JSON.stringify(data, null, 2)}\n${'─'.repeat(50)}\n`;
+            logContent.textContent = logEntry + logContent.textContent;
+        }
+        
+        // OpenRouter 키 가져오기
+        function getOpenRouterKey() {
+            const key = document.getElementById('openrouterKey').value.trim();
+            if (!key) {
+                alert('⚠️ OpenRouter API 키를 입력해주세요!');
+                return null;
+            }
+            return key;
+        }
+        
+        // API 로그 토글
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('toggleApiLogBtn').addEventListener('click', function() {
+                const logSection = document.getElementById('apiLogSection');
+                logSection.classList.toggle('hidden');
+                this.classList.toggle('bg-blue-100');
+            });
+            
+            document.getElementById('clearApiLogBtn').addEventListener('click', function() {
+                document.getElementById('apiLogContent').textContent = '로그가 지워졌습니다.';
+            });
+        });
+        
+        // HOOK, BODY, CTA의 원본 내용 저장
+        let originalHook = '';
+        let originalBody = '';
+        let originalCta = '';
+        
+        // 현재 변경사항 추적
+        let hasChanges = false;
+        
+        // HTML 이스케이프 함수
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 이야기에서 BODY 내용 추출 함수
+        function extractBodyContent(content) {
+            // GPT 분석 결과 분리
+            const parts = content.split('=== GPT 분석 결과 ===');
+            const storyText = parts[0].trim();
+            
+            // 제목 부분 제거 (첫 번째 줄)
+            const lines = storyText.split('\n');
+            const bodyContent = lines.slice(1).join('\n').trim();
+            
+            return bodyContent;
+        }
+        
+        // 제목 추출 함수
+        function extractTitle(content) {
+            const parts = content.split('=== GPT 분석 결과 ===');
+            const storyText = parts[0].trim();
+            const lines = storyText.split('\n');
+            const titleLine = lines[0];
+            
+            // "제목:" 접두사 제거
+            return titleLine.replace('제목:', '').trim();
+        }
+        
+        // 페이지 로드 시 이야기 데이터 불러오기
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('이야기 가공 페이지 로드됨');
+            
+            // localStorage에서 이야기 데이터 불러오기
+            const savedData = localStorage.getItem('storyToRefine');
+            
+            if (!savedData) {
+                // 데이터가 없으면 메인 페이지로 돌아가기
+                alert('가공할 이야기가 없습니다. 메인 페이지로 돌아갑니다.');
+                window.location.href = 'api_test.html';
+                return;
+            }
+            
+            try {
+                storyData = JSON.parse(savedData);
+                originalStory = JSON.parse(JSON.stringify(storyData)); // 깊은 복사로 원본 저장
+                
+                console.log('불러온 이야기 데이터:', storyData);
+                
+                // 이야기 제목 표시
+                const title = extractTitle(storyData.content);
+                document.getElementById('storyTitle').textContent = title;
+                
+                // 이야기 BODY 내용 표시
+                const bodyContent = extractBodyContent(storyData.content);
+                document.getElementById('storyContent').value = bodyContent;
+                
+                // 원본 내용 저장
+                saveOriginalContent();
+                
+                // 초기 상태를 히스토리에 추가 (hook, body, cta 형식으로)
+                const initialState = {
+                    hook: document.getElementById('hookContent').value,
+                    body: document.getElementById('storyContent').value,
+                    cta: document.getElementById('ctaContent').value
+                };
+                storyHistory.push(initialState);
+                
+                // 텍스트 영역에 이벤트 리스너 추가
+                document.getElementById('hookContent').addEventListener('input', checkForChanges);
+                document.getElementById('storyContent').addEventListener('input', checkForChanges);
+                document.getElementById('ctaContent').addEventListener('input', checkForChanges);
+                
+                updateUndoButton();
+                
+            } catch (error) {
+                console.error('이야기 데이터 파싱 오류:', error);
+                alert('이야기 데이터를 불러오는 중 오류가 발생했습니다.');
+                window.location.href = 'api_test.html';
+            }
+        });
+        
+        // Undo/Redo 버튼 상태 업데이트
+        function updateUndoButton() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            
+            // 히스토리가 있거나 텍스트 영역에 변경사항이 있으면 Undo 활성화
+            if (storyHistory.length > 1 || hasChanges) {
+                undoBtn.disabled = false;
+            } else {
+                undoBtn.disabled = true;
+            }
+            
+            // Redo 히스토리가 있으면 Redo 활성화
+            if (redoHistory.length > 0) {
+                redoBtn.disabled = false;
+            } else {
+                redoBtn.disabled = true;
+            }
+        }
+        
+        // 변경사항 확인 함수
+        function checkForChanges() {
+            const hookContent = document.getElementById('hookContent').value;
+            const bodyContent = document.getElementById('storyContent').value;
+            const ctaContent = document.getElementById('ctaContent').value;
+            
+            hasChanges = (hookContent !== originalHook) || 
+                        (bodyContent !== originalBody) || 
+                        (ctaContent !== originalCta);
+            
+            updateUndoButton();
+        }
+        
+        // 텍스트 영역 변경사항 되돌리기 함수
+        function undoTextChanges() {
+            document.getElementById('hookContent').value = originalHook;
+            document.getElementById('storyContent').value = originalBody;
+            document.getElementById('ctaContent').value = originalCta;
+            hasChanges = false;
+            updateUndoButton();
+        }
+        
+        // 원본 내용 저장 함수
+        function saveOriginalContent() {
+            originalHook = document.getElementById('hookContent').value;
+            originalBody = document.getElementById('storyContent').value;
+            originalCta = document.getElementById('ctaContent').value;
+        }
+        
+        // 이야기 업데이트 및 히스토리 저장
+        function updateStory(newContent) {
+            storyHistory.push(JSON.parse(JSON.stringify(storyData)));
+            storyData.content = newContent;
+            
+            // 화면 업데이트
+            const title = extractTitle(storyData.content);
+            document.getElementById('storyTitle').textContent = title;
+            
+            const bodyContent = extractBodyContent(storyData.content);
+            document.getElementById('storyContent').value = bodyContent;
+            
+            // 원본 내용 업데이트 및 변경사항 초기화
+            saveOriginalContent();
+            hasChanges = false;
+            
+            updateUndoButton();
+        }
+        
+        // 복사 기능 (공통 함수)
+        function copyStory(btn) {
+            // HOOK, BODY, CTA 내용 가져오기
+            const hookContent = document.getElementById('hookContent').value.trim();
+            const bodyContent = document.getElementById('storyContent').value.trim();
+            const ctaContent = document.getElementById('ctaContent').value.trim();
+            
+            // 복사할 내용이 하나도 없으면
+            if (!hookContent && !bodyContent && !ctaContent) {
+                alert('복사할 내용이 없습니다.');
+                return;
+            }
+            
+            // 전체 내용 조합 (제목 제외)
+            let fullContent = '';
+            
+            if (hookContent) {
+                fullContent += hookContent + '\n\n';
+            }
+            
+            if (bodyContent) {
+                fullContent += bodyContent + '\n\n';
+            }
+            
+            if (ctaContent) {
+                fullContent += ctaContent;
+            }
+            
+            // 클립보드에 복사
+            navigator.clipboard.writeText(fullContent.trim()).then(function() {
+                const originalHTML = btn.innerHTML;
+                const originalClasses = btn.className;
+                
+                // 버튼 변경 (체크 아이콘)
+                btn.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                `;
+                btn.className = 'p-2 text-green-600 bg-green-50 rounded-lg';
+                
+                // 2초 후 원래대로
+                setTimeout(function() {
+                    btn.innerHTML = originalHTML;
+                    btn.className = originalClasses;
+                }, 2000);
+            }).catch(function(error) {
+                console.error('복사 실패:', error);
+                alert('복사에 실패했습니다.');
+            });
+        }
+        
+        // 원본으로 되돌리기 기능 (공통 함수)
+        function resetStory() {
+            if (!originalStory) {
+                alert('원본 이야기가 없습니다.');
+                return;
+            }
+            
+            if (confirm('원본 이야기로 되돌리시겠습니까? 현재 수정된 내용과 히스토리는 모두 사라집니다.')) {
+                storyData = JSON.parse(JSON.stringify(originalStory)); // 깊은 복사
+                
+                // 화면 업데이트
+                const title = extractTitle(storyData.content);
+                document.getElementById('storyTitle').textContent = title;
+                
+                const bodyContent = extractBodyContent(storyData.content);
+                document.getElementById('storyContent').value = bodyContent;
+                
+                // HOOK, CTA는 빈 문자열로
+                document.getElementById('hookContent').value = '';
+                document.getElementById('ctaContent').value = '';
+                
+                // 원본 내용 업데이트 및 변경사항 초기화
+                saveOriginalContent();
+                hasChanges = false;
+                
+                // 히스토리 초기화 (hook, body, cta 형식으로)
+                const initialState = {
+                    hook: '',
+                    body: bodyContent,
+                    cta: ''
+                };
+                storyHistory = [initialState];
+                redoHistory = []; // Redo 히스토리도 초기화
+                
+                updateUndoButton();
+                alert('원본 이야기로 되돌렸습니다.');
+            }
+        }
+        
+        // 상단 복사 버튼 클릭 이벤트
+        document.getElementById('copyStoryBtnTop').addEventListener('click', function() {
+            copyStory(this);
+        });
+        
+        // 상단 원본으로 되돌리기 버튼 클릭 이벤트
+        document.getElementById('resetStoryBtnTop').addEventListener('click', function() {
+            resetStory();
+        });
+        
+        // Undo 버튼 클릭 이벤트
+        document.getElementById('undoBtn').addEventListener('click', function() {
+            // 텍스트 영역에 변경사항이 있으면 먼저 되돌리기
+            if (hasChanges) {
+                // 현재 상태를 Redo 히스토리에 저장
+                const currentState = {
+                    hook: document.getElementById('hookContent').value,
+                    body: document.getElementById('storyContent').value,
+                    cta: document.getElementById('ctaContent').value
+                };
+                redoHistory.push(currentState);
+                
+                undoTextChanges();
+            }
+            // 히스토리가 있으면 이전 상태로 복원
+            else if (storyHistory.length > 1) {
+                // 현재 상태를 Redo 히스토리에 저장
+                const currentState = {
+                    hook: document.getElementById('hookContent').value,
+                    body: document.getElementById('storyContent').value,
+                    cta: document.getElementById('ctaContent').value
+                };
+                redoHistory.push(currentState);
+                
+                storyHistory.pop(); // 현재 상태 제거
+                const previousState = storyHistory[storyHistory.length - 1]; // 이전 상태 가져오기
+                
+                // 화면 업데이트 (hook, body, cta 형식)
+                document.getElementById('hookContent').value = previousState.hook || '';
+                document.getElementById('storyContent').value = previousState.body || '';
+                document.getElementById('ctaContent').value = previousState.cta || '';
+                
+                // 원본 내용 업데이트
+                saveOriginalContent();
+                
+                updateUndoButton();
+            }
+        });
+        
+        // Redo 버튼 클릭 이벤트
+        document.getElementById('redoBtn').addEventListener('click', function() {
+            if (redoHistory.length > 0) {
+                // 현재 상태를 히스토리에 저장
+                const currentState = {
+                    hook: document.getElementById('hookContent').value,
+                    body: document.getElementById('storyContent').value,
+                    cta: document.getElementById('ctaContent').value
+                };
+                storyHistory.push(currentState);
+                
+                // Redo 히스토리에서 다음 상태 가져오기
+                const nextState = redoHistory.pop();
+                
+                // 화면 업데이트
+                document.getElementById('hookContent').value = nextState.hook || '';
+                document.getElementById('storyContent').value = nextState.body || '';
+                document.getElementById('ctaContent').value = nextState.cta || '';
+                
+                // 원본 내용 업데이트
+                saveOriginalContent();
+                hasChanges = false;
+                
+                updateUndoButton();
+            }
+        });
+        
+        // 새 채팅 버튼 클릭 이벤트
+        document.getElementById('newChatBtn').addEventListener('click', function() {
+            if (confirm('새 채팅을 시작하시겠습니까? 현재 대화 내역은 삭제됩니다.')) {
+                const chatMessages = document.getElementById('chatMessages');
+                // 웰컴 메시지만 남기고 모두 삭제
+                const welcomeMessage = chatMessages.querySelector('.chat-message-ai').parentElement;
+                chatMessages.innerHTML = '';
+                chatMessages.appendChild(welcomeMessage);
+                
+                // 대화 히스토리 초기화
+                conversationHistory = [];
+            }
+        });
+        
+        // 대화 히스토리 저장
+        let conversationHistory = [];
+        
+        // AI 응답 파싱 함수
+        function parseAiResponse(responseText) {
+            const result = {
+                hook: null,
+                body: null,
+                cta: null,
+                message: ''
+            };
+            
+            // response: 부분 추출
+            const responseMatch = responseText.match(/response:\s*([\s\S]*?)(?=\n==|$)/i);
+            if (responseMatch) {
+                result.message = responseMatch[1].trim();
+            } else {
+                // response: 태그가 없으면 전체를 메시지로 사용
+                result.message = responseText.trim();
+            }
+            
+            // == HOOK == 부분 추출
+            const hookMatch = responseText.match(/==\s*HOOK\s*==\s*([\s\S]*?)(?=\n==|response:|$)/i);
+            if (hookMatch) {
+                const hookContent = hookMatch[1].trim();
+                if (hookContent && hookContent !== '(수정 없음)' && hookContent !== '[수정된 부분이 있을 경우, 수정된 HOOK 텍스트]') {
+                    result.hook = hookContent;
+                }
+            }
+            
+            // == BODY == 부분 추출
+            const bodyMatch = responseText.match(/==\s*BODY\s*==\s*([\s\S]*?)(?=\n==|response:|$)/i);
+            if (bodyMatch) {
+                const bodyContent = bodyMatch[1].trim();
+                if (bodyContent && bodyContent !== '(수정 없음)' && bodyContent !== '[수정된 부분이 있을 경우, 수정된 BODY 텍스트]') {
+                    result.body = bodyContent;
+                }
+            }
+            
+            // == CTA == 부분 추출
+            const ctaMatch = responseText.match(/==\s*CTA\s*==\s*([\s\S]*?)(?=\n==|response:|$)/i);
+            if (ctaMatch) {
+                const ctaContent = ctaMatch[1].trim();
+                if (ctaContent && ctaContent !== '(수정 없음)' && ctaContent !== '[수정된 부분이 있을 경우, 수정된 CTA 텍스트]') {
+                    result.cta = ctaContent;
+                }
+            }
+            
+            return result;
+        }
+        
+        // 메시지 전송 기능
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (message === '') {
+                return;
+            }
+            
+            // OpenRouter 키 확인
+            const openrouterKey = getOpenRouterKey();
+            if (!openrouterKey) return;
+            
+            // 선택된 AI 모델 가져오기
+            const selectedModel = document.getElementById('aiModelSelect').value;
+            
+            // 사용자 메시지 추가
+            addUserMessage(message);
+            
+            // 대화 히스토리에 추가
+            conversationHistory.push({
+                role: 'user',
+                content: message
+            });
+            
+            // 입력창 초기화 및 비활성화
+            messageInput.value = '';
+            messageInput.disabled = true;
+            document.getElementById('sendMessageBtn').disabled = true;
+            
+            // 로딩 인디케이터 추가
+            const loadingId = addLoadingIndicator();
+            
+            try {
+                // 현재 HOOK, BODY, CTA 내용 가져오기
+                const hookContent = document.getElementById('hookContent').value;
+                const bodyContent = document.getElementById('storyContent').value;
+                const ctaContent = document.getElementById('ctaContent').value;
+                
+                // 요청 데이터 구성
+                const requestData = {
+                    _openrouter_key: openrouterKey,
+                    model: selectedModel,
+                    message: message,
+                    hookContent: hookContent,
+                    bodyContent: bodyContent,
+                    ctaContent: ctaContent,
+                    conversationHistory: conversationHistory
+                };
+                
+                // API 로그 - 요청
+                appendApiLog('📤 REQUEST (refine_story.php)', {
+                    ...requestData,
+                    _openrouter_key: '***hidden***'
+                });
+                
+                // API 요청
+                const response = await fetch('../refine_story.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                // API 로그 - 응답
+                appendApiLog('📥 RESPONSE (refine_story.php)', result);
+                
+                // 로딩 인디케이터 제거
+                removeLoadingIndicator(loadingId);
+                
+                if (result.error) {
+                    addAiMessage('❌ 오류가 발생했습니다: ' + result.error);
+                    console.error('API 오류:', result);
+                } else {
+                    // AI 응답 파싱
+                    const parsedResponse = parseAiResponse(result.response);
+                    
+                    // HOOK, BODY, CTA 업데이트
+                    let hasUpdates = false;
+                    
+                    // 업데이트 전 현재 상태를 히스토리에 저장
+                    const currentState = {
+                        hook: document.getElementById('hookContent').value,
+                        body: document.getElementById('storyContent').value,
+                        cta: document.getElementById('ctaContent').value
+                    };
+                    
+                    if (parsedResponse.hook !== null) {
+                        document.getElementById('hookContent').value = parsedResponse.hook;
+                        hasUpdates = true;
+                    }
+                    
+                    if (parsedResponse.body !== null) {
+                        document.getElementById('storyContent').value = parsedResponse.body;
+                        hasUpdates = true;
+                    }
+                    
+                    if (parsedResponse.cta !== null) {
+                        document.getElementById('ctaContent').value = parsedResponse.cta;
+                        hasUpdates = true;
+                    }
+                    
+                    // 업데이트가 있었다면 히스토리에 저장하고 원본 내용 갱신
+                    if (hasUpdates) {
+                        storyHistory.push(currentState);
+                        redoHistory = []; // 새로운 변경이므로 Redo 히스토리 초기화
+                        saveOriginalContent();
+                        hasChanges = false;
+                        updateUndoButton();
+                    }
+                    
+                    // 채팅창에는 response 부분만 표시
+                    addAiMessage(parsedResponse.message);
+                    
+                    // 대화 히스토리에 추가 (전체 응답 저장)
+                    conversationHistory.push({
+                        role: 'assistant',
+                        content: result.response
+                    });
+                }
+                
+            } catch (error) {
+                // 로딩 인디케이터 제거
+                removeLoadingIndicator(loadingId);
+                addAiMessage('❌ 네트워크 오류가 발생했습니다: ' + error.message);
+                console.error('요청 오류:', error);
+            } finally {
+                // 입력창 다시 활성화
+                messageInput.disabled = false;
+                document.getElementById('sendMessageBtn').disabled = false;
+                messageInput.focus();
+            }
+        }
+        
+        // 사용자 메시지 추가 함수
+        function addUserMessage(message) {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex justify-end';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'chat-message-user';
+            
+            // 줄바꿈 처리
+            messageContent.innerHTML = escapeHtml(message).replace(/\n/g, '<br>');
+            
+            messageDiv.appendChild(messageContent);
+            chatMessages.appendChild(messageDiv);
+            
+            // 스크롤을 최하단으로
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // AI 메시지 추가 함수
+        function addAiMessage(message) {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex justify-start';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'chat-message-ai';
+            messageContent.innerHTML = escapeHtml(message).replace(/\n/g, '<br>');
+            
+            messageDiv.appendChild(messageContent);
+            chatMessages.appendChild(messageDiv);
+            
+            // 스크롤을 최하단으로
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // 로딩 인디케이터 추가 함수
+        function addLoadingIndicator() {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex justify-start';
+            messageDiv.id = 'loading-indicator-' + Date.now();
+            
+            const loadingContent = document.createElement('div');
+            loadingContent.className = 'chat-message-ai';
+            loadingContent.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+            
+            messageDiv.appendChild(loadingContent);
+            chatMessages.appendChild(messageDiv);
+            
+            // 스크롤을 최하단으로
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            return messageDiv.id;
+        }
+        
+        // 로딩 인디케이터 제거 함수
+        function removeLoadingIndicator(loadingId) {
+            const loadingElement = document.getElementById(loadingId);
+            if (loadingElement) {
+                loadingElement.remove();
+            }
+        }
+        
+        // 전송 버튼 클릭 이벤트
+        document.getElementById('sendMessageBtn').addEventListener('click', function() {
+            sendMessage();
+        });
+        
+        // Enter 키 이벤트 처리
+        document.getElementById('messageInput').addEventListener('keydown', function(e) {
+            // Enter 키 (Shift, Ctrl 없이)
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+            // Shift+Enter 또는 Ctrl+Enter는 기본 동작(줄바꿈) 허용
+        });
+        
+        // 빠른 명령어 버튼 클릭 이벤트
+        document.querySelectorAll('.quick-command-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const command = this.textContent.trim();
+                const messageInput = document.getElementById('messageInput');
+                messageInput.value = command;
+                messageInput.focus();
+            });
+        });
+        
+        // HOOK 자동생성 버튼 클릭 이벤트
+        document.getElementById('generateHookBtn').addEventListener('click', async function() {
+            const bodyContent = document.getElementById('storyContent').value.trim();
+            const hookType = document.getElementById('hookTypeSelect').value;
+            
+            if (!bodyContent) {
+                alert('BODY 내용이 비어있습니다. HOOK을 생성하려면 먼저 BODY 내용을 입력해주세요.');
+                return;
+            }
+            
+            // OpenRouter 키 확인
+            const openrouterKey = getOpenRouterKey();
+            if (!openrouterKey) return;
+            
+            const generateBtn = this;
+            const originalText = generateBtn.textContent;
+            
+            // 버튼 비활성화 및 로딩 상태
+            generateBtn.disabled = true;
+            generateBtn.textContent = '생성 중...';
+            
+            // 요청 데이터 구성
+            const requestData = {
+                _openrouter_key: openrouterKey,
+                bodyContent: bodyContent,
+                hookType: hookType
+            };
+            
+            // API 로그 - 요청
+            appendApiLog('📤 REQUEST (generate_hook.php)', {
+                ...requestData,
+                _openrouter_key: '***hidden***'
+            });
+            
+            try {
+                // generate_hook.php API 호출
+                const response = await fetch('../generate_hook.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                // API 로그 - 응답
+                appendApiLog('📥 RESPONSE (generate_hook.php)', result);
+                
+                if (result.error) {
+                    alert('❌ HOOK 생성 오류: ' + result.error);
+                    console.error('HOOK 생성 오류:', result);
+                } else if (result.success && result.raw_response) {
+                    // 현재 상태를 히스토리에 저장
+                    const currentState = {
+                        hook: document.getElementById('hookContent').value,
+                        body: document.getElementById('storyContent').value,
+                        cta: document.getElementById('ctaContent').value
+                    };
+                    storyHistory.push(currentState);
+                    redoHistory = []; // 새로운 변경이므로 Redo 히스토리 초기화
+                    
+                    // 생성된 HOOK 원본 응답을 그대로 HOOK 텍스트 영역에 표시
+                    document.getElementById('hookContent').value = result.raw_response.trim();
+                    
+                    // 원본 내용 갱신
+                    saveOriginalContent();
+                    hasChanges = false;
+                    updateUndoButton();
+                    
+                    // 성공 피드백
+                    generateBtn.textContent = '✓ 생성완료';
+                    generateBtn.className = 'text-xs bg-green-600 text-white rounded transition-colors';
+                    
+                    setTimeout(function() {
+                        generateBtn.textContent = originalText;
+                        generateBtn.className = 'text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+                        generateBtn.disabled = false;
+                    }, 2000);
+                } else {
+                    alert('❌ HOOK 생성 실패: 응답이 올바르지 않습니다.');
+                    console.error('잘못된 응답:', result);
+                    generateBtn.textContent = originalText;
+                    generateBtn.disabled = false;
+                }
+                
+            } catch (error) {
+                alert('❌ 네트워크 오류: ' + error.message);
+                console.error('요청 오류:', error);
+                generateBtn.textContent = originalText;
+                generateBtn.disabled = false;
+            }
+        });
+        
+        // CTA 자동생성 버튼 클릭 이벤트
+        document.getElementById('generateCtaBtn').addEventListener('click', async function() {
+            const bodyContent = document.getElementById('storyContent').value.trim();
+            const ctaType = document.getElementById('ctaTypeSelect').value;
+            
+            if (!bodyContent) {
+                alert('BODY 내용이 비어있습니다. CTA를 생성하려면 먼저 BODY 내용을 입력해주세요.');
+                return;
+            }
+            
+            // OpenRouter 키 확인
+            const openrouterKey = getOpenRouterKey();
+            if (!openrouterKey) return;
+            
+            const generateBtn = this;
+            const originalText = generateBtn.textContent;
+            
+            // 버튼 비활성화 및 로딩 상태
+            generateBtn.disabled = true;
+            generateBtn.textContent = '생성 중...';
+            
+            // 요청 데이터 구성
+            const requestData = {
+                _openrouter_key: openrouterKey,
+                bodyContent: bodyContent,
+                ctaType: ctaType
+            };
+            
+            // API 로그 - 요청
+            appendApiLog('📤 REQUEST (generate_cta.php)', {
+                ...requestData,
+                _openrouter_key: '***hidden***'
+            });
+            
+            try {
+                // generate_cta.php API 호출
+                const response = await fetch('../generate_cta.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                // API 로그 - 응답
+                appendApiLog('📥 RESPONSE (generate_cta.php)', result);
+                
+                if (result.error) {
+                    alert('❌ CTA 생성 오류: ' + result.error);
+                    console.error('CTA 생성 오류:', result);
+                } else if (result.success && result.raw_response) {
+                    // 현재 상태를 히스토리에 저장
+                    const currentState = {
+                        hook: document.getElementById('hookContent').value,
+                        body: document.getElementById('storyContent').value,
+                        cta: document.getElementById('ctaContent').value
+                    };
+                    storyHistory.push(currentState);
+                    redoHistory = []; // 새로운 변경이므로 Redo 히스토리 초기화
+                    
+                    // 생성된 CTA 원본 응답을 그대로 CTA 텍스트 영역에 표시
+                    document.getElementById('ctaContent').value = result.raw_response.trim();
+                    
+                    // 원본 내용 갱신
+                    saveOriginalContent();
+                    hasChanges = false;
+                    updateUndoButton();
+                    
+                    // 성공 피드백
+                    generateBtn.textContent = '✓ 생성완료';
+                    generateBtn.className = 'text-xs bg-green-600 text-white rounded transition-colors';
+                    
+                    setTimeout(function() {
+                        generateBtn.textContent = originalText;
+                        generateBtn.className = 'text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+                        generateBtn.disabled = false;
+                    }, 2000);
+                } else {
+                    alert('❌ CTA 생성 실패: 응답이 올바르지 않습니다.');
+                    console.error('잘못된 응답:', result);
+                    generateBtn.textContent = originalText;
+                    generateBtn.disabled = false;
+                }
+                
+            } catch (error) {
+                alert('❌ 네트워크 오류: ' + error.message);
+                console.error('요청 오류:', error);
+                generateBtn.textContent = originalText;
+                generateBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
+

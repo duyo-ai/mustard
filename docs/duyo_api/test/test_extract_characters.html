@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>등장인물 추출 API 테스트</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .optional-input {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .mode-selection {
+            margin: 20px 0;
+        }
+
+        .mode-option {
+            display: inline-block;
+            margin-right: 20px;
+        }
+
+        .mode-option input[type="radio"] {
+            margin-right: 5px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: block;
+            margin: 30px auto;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result-section {
+            margin-top: 40px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px 10px 0 0;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .result-content {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            padding: 20px;
+        }
+
+        .character-list {
+            display: grid;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .character-item {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .character-name {
+            font-weight: bold;
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+
+        .character-traits {
+            opacity: 0.9;
+        }
+
+        .raw-analysis {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .usage-info {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #2196F3;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #d00;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 4px solid #d00;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎭 등장인물 추출 API 테스트</h1>
+        
+        <div class="main-card">
+            <div class="input-section">
+                <label for="story">스토리 내용 *</label>
+                <textarea id="story" placeholder="등장인물을 추출할 스토리를 입력하세요...
+
+예시 (등장인물은 (이름) 형식으로 작성):
+(민수) "아 오늘도 야근이네..."
+(김부장) "민수야, 이번 프로젝트 마감일이 다음주야. 잘 부탁해."
+(지은이) "선배님들 커피 한 잔씩 하실래요? 제가 쏠게요!"></textarea>
+
+                <div class="info-box" style="background: #e8f4fd; padding: 15px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #2196F3;">
+                    <strong>💡 중요:</strong> 등장인물은 반드시 <code>(이름) "대사"</code> 형식으로 작성해야 자동 추출이 가능합니다.
+                </div>
+
+                <button id="extractBtn" onclick="extractCharacters()">
+                    등장인물 추출하기
+                </button>
+            </div>
+
+            <div id="resultSection" class="result-section">
+                <!-- 결과가 여기에 표시됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function extractCharacters() {
+            const button = document.getElementById('extractBtn');
+            const story = document.getElementById('story').value.trim();
+            const resultSection = document.getElementById('resultSection');
+
+            if (!story) {
+                alert('스토리 내용을 입력해주세요!');
+                return;
+            }
+
+            // 버튼 비활성화 및 로딩 표시
+            button.disabled = true;
+            button.textContent = '추출 중...';
+            
+            resultSection.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    등장인물을 분석하고 있습니다...
+                </div>
+            `;
+            resultSection.classList.add('show');
+
+            // 요청 데이터 저장 (디버깅용)
+            const requestData = {
+                story: story
+            };
+            
+            const startTime = Date.now(); // 요청 시간 측정
+
+            try {
+                const response = await fetch('../extract_characters.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const responseTime = Date.now() - startTime; // 응답 시간 계산
+                const data = await response.json();
+
+                // 디버그 정보 추가
+                data._debug = {
+                    responseTime: responseTime,
+                    httpStatus: response.status,
+                    requestData: requestData
+                };
+                
+                // 콘솔에 디버그 정보 출력
+                console.log('========== API Debug Info ==========');
+                console.log('Request:', requestData);
+                console.log('Response:', data);
+                console.log('Response Time:', responseTime + 'ms');
+                console.log('HTTP Status:', response.status);
+                console.log('=====================================');
+                
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    displayError(data.error || '알 수 없는 오류가 발생했습니다.', data);
+                }
+            } catch (error) {
+                console.error('네트워크 오류:', error);
+                displayError('네트워크 오류: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.textContent = '등장인물 추출하기';
+            }
+        }
+
+        function displayResults(data) {
+            const resultSection = document.getElementById('resultSection');
+            
+            let characterHTML = '';
+            if (data.characters && Object.keys(data.characters).length > 0) {
+                characterHTML = '<div class="character-list">';
+                for (const [name, traits] of Object.entries(data.characters)) {
+                    characterHTML += `
+                        <div class="character-item">
+                            <span class="character-name">${name}</span>
+                            <span class="character-traits">${traits}</span>
+                        </div>
+                    `;
+                }
+                characterHTML += '</div>';
+            }
+
+            resultSection.innerHTML = `
+                <div class="result-header">
+                    <h2>📊 추출 결과</h2>
+                </div>
+                <div class="result-content">
+                    <h3>등장인물 목록</h3>
+                    ${characterHTML}
+                    
+                    ${data.extracted_names && data.extracted_names.length > 0 ? `
+                    <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-top: 15px; border-left: 4px solid #ffc107;">
+                        <strong>🔎 자동 추출된 이름들:</strong> ${data.extracted_names.join(', ')}
+                    </div>
+                    ` : ''}
+                    
+                    <div class="usage-info">
+                        <strong>토큰 사용량:</strong><br>
+                        입력: ${data.usage.prompt_tokens} 토큰<br>
+                        출력: ${data.usage.completion_tokens} 토큰<br>
+                        총: ${data.usage.total_tokens} 토큰<br>
+                        <small>모델: ${data.model}</small><br>
+                        <small style="color: #999;">응답 시간: ${data._debug?.responseTime || 'N/A'}ms | HTTP: ${data._debug?.httpStatus || 'N/A'}</small><br>
+                        <small style="color: #999;">생성 시각: ${data.timestamp || 'N/A'}</small>
+                    </div>
+                    
+                    <details style="margin-top: 20px;">
+                        <summary style="cursor: pointer; font-weight: bold;">원본 GPT 분석 결과 보기</summary>
+                        <div class="raw-analysis">${data.raw_analysis}</div>
+                    </details>
+                    
+                    <details style="margin-top: 20px;">
+                        <summary style="cursor: pointer; font-weight: bold; color: #667eea;">🔍 전체 API 응답 (Raw Response) 보기</summary>
+                        <div class="raw-analysis" style="background: #2d2d2d; color: #f8f8f2;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    </details>
+                    
+                    <details style="margin-top: 20px;">
+                        <summary style="cursor: pointer; font-weight: bold; color: #f5576c;">📤 요청 데이터 보기</summary>
+                        <div class="raw-analysis" style="background: #f8f9fa; color: #333;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${JSON.stringify(data._debug?.requestData || {}, null, 2)}</pre>
+                        </div>
+                    </details>
+                </div>
+            `;
+        }
+
+        function displayError(error, rawData = null) {
+            const resultSection = document.getElementById('resultSection');
+            let rawResponseSection = '';
+            
+            if (rawData) {
+                rawResponseSection = `
+                    <details style="margin-top: 20px;">
+                        <summary style="cursor: pointer; font-weight: bold;">🔍 원본 응답 보기</summary>
+                        <div style="background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 5px; margin-top: 10px;">
+                            <pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">${JSON.stringify(rawData, null, 2)}</pre>
+                        </div>
+                    </details>
+                `;
+            }
+            
+            resultSection.innerHTML = `
+                <div class="error-message">
+                    <strong>오류 발생:</strong><br>
+                    ${error}
+                    ${rawResponseSection}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

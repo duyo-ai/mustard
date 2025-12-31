@@ -1,0 +1,25 @@
+API 소스코드로 전달드립니다! 문서도 md로 정리되어 있습니다.
+
+duyo_api/
+├── config.php              # 설정 (API 키)
+├── api.php                 # 메인 API 엔드포인트
+├── continue_story.php      # 이어쓰기
+├── split_scene.php         # 장면 나누기
+├── refine_story.php        # 스토리 가공
+├── generate_hook.php       # HOOK 생성
+├── generate_cta.php        # CTA 생성
+├── extract_characters.php  # 캐릭터 추출
+├── get_location.php        # 장소 정보 추출
+├── generate_viral_content.php  # 바이럴 콘텐츠 생성
+├── generate_story_*.php    # 스토리 생성 (내부용)
+│
+├── pages/                  # 웹 페이지
+│   ├── api_test.html       # API 테스트
+│   └── refine_story.html   # 스토리 가공
+│
+└── test/                   # 테스트 페이지
+    ├── test_extract_characters.html
+    └── test_get_location.html
+
+
+
