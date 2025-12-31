@@ -2,7 +2,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { placeImages } from "@/lib/gemini/placeImages";
-import type { Phrase, ImageDescription } from "@/lib/core/types";
+import type {
+  Phrase,
+  ImageDescription,
+  PlacementContext,
+  CharacterInfo,
+  LocationInfo,
+} from "@/lib/core/types";
 
 /*
  * POST /api/place-images
@@ -13,14 +19,18 @@ import type { Phrase, ImageDescription } from "@/lib/core/types";
  * Request body:
  * - phrases: Phrase[] (structured scene data from /api/split-scenes)
  * - imageDescriptions: ImageDescription[] (from /api/analyze-images)
+ * - context?: PlacementContext (optional, for enhanced placement)
+ *   - characters?: CharacterInfo[] (from /api/extract-characters)
+ *   - locations?: LocationInfo[] (from /api/get-location)
  *
  * Response:
  * - placements: ImagePlacement[]
+ * - usage: { model, tokens, cost, latencyMs }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { phrases, imageDescriptions } = body;
+    const { phrases, imageDescriptions, context } = body;
 
     /* Validate phrases */
     if (!phrases || !Array.isArray(phrases)) {
@@ -100,6 +110,30 @@ export async function POST(request: NextRequest) {
     }
 
     /*
+     * Build placement context if provided.
+     * Context is optional - when omitted, placeImages uses basic text/image matching.
+     * When provided, it enables enhanced matching based on character/location info.
+     */
+    let placementContext: PlacementContext | undefined;
+
+    if (context) {
+      placementContext = {};
+
+      if (context.characters && Array.isArray(context.characters)) {
+        placementContext.characters = context.characters as CharacterInfo[];
+      }
+
+      if (context.locations && Array.isArray(context.locations)) {
+        placementContext.locations = context.locations as LocationInfo[];
+      }
+
+      /* Only use context if it has meaningful data */
+      if (!placementContext.characters?.length && !placementContext.locations?.length) {
+        placementContext = undefined;
+      }
+    }
+
+    /*
      * Determine image placements using Gemini.
      * The placeImages function handles validation and fallbacks internally.
      * Returns both placements and usage metadata for client-side logging.
@@ -107,7 +141,8 @@ export async function POST(request: NextRequest) {
     const result = await placeImages(
       phrases as Phrase[],
       imageDescriptions as ImageDescription[],
-      apiKey
+      apiKey,
+      placementContext
     );
 
     return NextResponse.json({

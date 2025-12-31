@@ -11,6 +11,7 @@ import type {
   Phrase,
   ImageDescription,
   ImagePlacement,
+  PlacementContext,
   LLMTokens,
   LLMCost,
 } from "@/lib/core/types";
@@ -39,11 +40,19 @@ export interface ImagePlacementResult {
  * Determines optimal placement for images within the story structure.
  * Uses Gemini with JSON response mode for reliable structured output.
  * Returns both placements and usage metadata for logging.
+ *
+ * Enhanced in P3 to accept optional PlacementContext:
+ * - characters: Extracted character info (name, mood, age, sex)
+ * - locations: Inferred location per scene
+ *
+ * When context is provided, the placement prompt includes additional
+ * matching strategies for more semantically relevant image placement.
  */
 export async function placeImages(
   phrases: Phrase[],
   imageDescriptions: ImageDescription[],
-  apiKey: string
+  apiKey: string,
+  context?: PlacementContext
 ): Promise<ImagePlacementResult> {
   const emptyUsage = {
     model: GEMINI_MODEL_ID,
@@ -90,8 +99,15 @@ export async function placeImages(
     },
   });
 
-  const userPrompt = buildImagePlacementPrompt(phrases, imageDescriptions);
-  console.log("[placeImages] Prompt length:", userPrompt.length, "chars");
+  const userPrompt = buildImagePlacementPrompt(phrases, imageDescriptions, context);
+
+  /* Log context info if provided */
+  console.log("[placeImages] Prompt length:", userPrompt.length, "chars", {
+    hasCharacterContext: Boolean(context?.characters?.length),
+    hasLocationContext: Boolean(context?.locations?.length),
+    characterCount: context?.characters?.length ?? 0,
+    locationCount: context?.locations?.length ?? 0,
+  });
 
   try {
     console.log("[placeImages] Calling Gemini API...");
