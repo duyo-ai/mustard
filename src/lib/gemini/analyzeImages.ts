@@ -115,6 +115,80 @@ export async function analyzeImagesFromBase64(
 }
 
 /**
+ * Analyzes images from URLs (e.g., Vercel Blob URLs).
+ * Fetches each image, converts to base64, then analyzes.
+ * This bypasses the 4.5MB request body limit by fetching images server-side.
+ */
+export async function analyzeImagesFromUrls(
+  images: Array<{ url: string; mimeType: string }>,
+  apiKey: string
+): Promise<ImageAnalysisResult> {
+  const model = getVisionModel(apiKey);
+  const startTime = Date.now();
+
+  const tasks = images.map((image, index) => ({
+    image,
+    index,
+  }));
+
+  const results = await runWithConcurrency(
+    tasks,
+    async (task) => analyzeImageFromUrl(task.image, task.index, model),
+    CONCURRENCY_LIMIT
+  );
+
+  return aggregateResults(results, startTime);
+}
+
+/**
+ * Analyzes a single image from URL.
+ * Fetches the image, converts to base64, then calls Gemini.
+ */
+async function analyzeImageFromUrl(
+  image: { url: string; mimeType: string },
+  index: number,
+  model: ReturnType<typeof getVisionModel>
+): Promise<SingleAnalysisResult> {
+  const startTime = Date.now();
+
+  try {
+    /* Fetch image from URL */
+    console.log(`[analyzeImages] Fetching image ${index} from ${image.url}`);
+    const response = await fetch(image.url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+
+    /* Convert to base64 */
+    const arrayBuffer = await response.arrayBuffer();
+    const base64Data = Buffer.from(arrayBuffer).toString("base64");
+
+    /* Detect mime type from response if not provided */
+    const mimeType = image.mimeType || response.headers.get("content-type") || "image/jpeg";
+
+    return await callGeminiForAnalysis(
+      base64Data,
+      mimeType,
+      index,
+      model,
+      startTime
+    );
+  } catch (error) {
+    const latencyMs = Date.now() - startTime;
+    console.error(`Failed to analyze image ${index} from URL:`, error);
+
+    return {
+      description: createFallbackDescription(index),
+      tokens: { input: 0, output: 0, total: 0 },
+      latencyMs,
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
  * Aggregates individual analysis results into a summary with usage data.
  */
 function aggregateResults(

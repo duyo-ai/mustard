@@ -1,31 +1,22 @@
 "use client";
 
-/* ImageUploader - Multi-image upload with preview and base64 conversion */
+/* ImageUploader - Multi-image upload with Vercel Blob storage */
 
 import { useState, useCallback, useRef } from "react";
-import imageCompression from "browser-image-compression";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /*
- * Image compression options.
- * Compresses images before upload to stay within Vercel's body size limit.
- * Even with Pro plan (50MB limit), compression improves upload speed and API performance.
+ * UploadedImage now uses blobUrl instead of base64.
+ * This bypasses Vercel's 4.5MB body size limit by storing images in Blob storage.
  */
-const COMPRESSION_OPTIONS = {
-  maxSizeMB: 1,
-  maxWidthOrHeight: 1920,
-  useWebWorker: true,
-  fileType: "image/jpeg" as const,
-};
-
 export interface UploadedImage {
   id: string;
   file: File;
   preview: string;
-  base64: string;
+  blobUrl: string;
   mimeType: string;
 }
 
@@ -40,30 +31,35 @@ const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 export function ImageUploader({
   onImagesChange,
   maxImages = 50,
-  maxSizeMB = 10,
+  maxSizeMB = 50,
 }: ImageUploaderProps) {
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isCompressing, setIsCompressing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /*
-   * Convert File to base64 string (without data URL prefix).
-   * This format is required by the Gemini Vision API.
+   * Upload file to Vercel Blob storage.
+   * Returns the blob URL for later use in image analysis.
    */
-  const fileToBase64 = useCallback((file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        /* Remove data URL prefix: "data:image/png;base64," */
-        const base64 = result.split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+  const uploadToBlob = useCallback(async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/upload-image", {
+      method: "POST",
+      body: formData,
     });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Upload failed");
+    }
+
+    const data = await response.json();
+    return data.url;
   }, []);
 
   const processFiles = useCallback(
@@ -77,10 +73,13 @@ export function ImageUploader({
         return;
       }
 
-      setIsCompressing(true);
+      setIsUploading(true);
       const newImages: UploadedImage[] = [];
 
-      for (const file of fileArray) {
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i];
+        setUploadProgress(`Uploading ${i + 1}/${fileArray.length}...`);
+
         /* Validate type */
         if (!ACCEPTED_TYPES.includes(file.type)) {
           setError(`Invalid file type: ${file.name}. Use JPEG, PNG, WebP, or GIF.`);
@@ -95,33 +94,27 @@ export function ImageUploader({
         }
 
         try {
-          /*
-           * Compress image before processing.
-           * This reduces payload size for Vercel's body limit and improves upload speed.
-           * Original file is preserved for preview, compressed version for API upload.
-           */
-          console.log(`[ImageUploader] Compressing ${file.name} (${sizeMB.toFixed(2)}MB)...`);
-          const compressedFile = await imageCompression(file, COMPRESSION_OPTIONS);
-          const compressedSizeMB = compressedFile.size / (1024 * 1024);
-          console.log(`[ImageUploader] Compressed to ${compressedSizeMB.toFixed(2)}MB`);
+          console.log(`[ImageUploader] Uploading ${file.name} (${sizeMB.toFixed(2)}MB) to Blob...`);
+          const blobUrl = await uploadToBlob(file);
+          console.log(`[ImageUploader] Uploaded to ${blobUrl}`);
 
-          const base64 = await fileToBase64(compressedFile);
           const preview = URL.createObjectURL(file);
 
           newImages.push({
             id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            file: compressedFile,
+            file,
             preview,
-            base64,
-            mimeType: compressedFile.type,
+            blobUrl,
+            mimeType: file.type,
           });
         } catch (err) {
-          console.error(`[ImageUploader] Failed to process ${file.name}:`, err);
-          setError(`Failed to process: ${file.name}`);
+          console.error(`[ImageUploader] Failed to upload ${file.name}:`, err);
+          setError(`Failed to upload: ${file.name}`);
         }
       }
 
-      setIsCompressing(false);
+      setIsUploading(false);
+      setUploadProgress(null);
 
       if (newImages.length > 0) {
         const updated = [...images, ...newImages];
@@ -129,7 +122,7 @@ export function ImageUploader({
         onImagesChange(updated);
       }
     },
-    [images, maxImages, maxSizeMB, fileToBase64, onImagesChange]
+    [images, maxImages, maxSizeMB, uploadToBlob, onImagesChange]
   );
 
   const handleFileSelect = useCallback(
@@ -202,12 +195,12 @@ export function ImageUploader({
             border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
             transition-colors duration-200
             ${isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"}
-            ${images.length >= maxImages ? "opacity-50 cursor-not-allowed" : ""}
+            ${images.length >= maxImages || isUploading ? "opacity-50 cursor-not-allowed" : ""}
           `}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => images.length < maxImages && fileInputRef.current?.click()}
+          onClick={() => !isUploading && images.length < maxImages && fileInputRef.current?.click()}
         >
           <input
             ref={fileInputRef}
@@ -216,18 +209,18 @@ export function ImageUploader({
             multiple
             onChange={handleFileSelect}
             className="hidden"
-            disabled={images.length >= maxImages}
+            disabled={images.length >= maxImages || isUploading}
           />
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              {isCompressing
-                ? "Compressing images..."
+              {uploadProgress
+                ? uploadProgress
                 : isDragging
                   ? "Drop images here..."
                   : "Click or drag images to upload"}
             </p>
             <p className="text-xs text-muted-foreground">
-              JPEG, PNG, WebP, GIF (auto-compressed to ~1MB)
+              JPEG, PNG, WebP, GIF (max {maxSizeMB}MB each)
             </p>
           </div>
         </div>
@@ -242,7 +235,7 @@ export function ImageUploader({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Uploaded Images</span>
-              <Button variant="ghost" size="sm" onClick={clearAll}>
+              <Button variant="ghost" size="sm" onClick={clearAll} disabled={isUploading}>
                 Clear All
               </Button>
             </div>

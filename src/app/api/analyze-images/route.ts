@@ -1,7 +1,7 @@
 /* API Route: Analyze Images using Gemini Vision */
 
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeImagesFromBase64 } from "@/lib/gemini/analyzeImages";
+import { analyzeImagesFromUrls } from "@/lib/gemini/analyzeImages";
 
 /*
  * Maximum number of images allowed per request.
@@ -10,34 +10,29 @@ import { analyzeImagesFromBase64 } from "@/lib/gemini/analyzeImages";
 const MAX_IMAGES = 50;
 
 /*
- * Maximum size per image in bytes (100MB).
- * Increased to support high-resolution images for better analysis quality.
- */
-const MAX_IMAGE_SIZE = 100 * 1024 * 1024;
-
-/*
  * POST /api/analyze-images
  *
- * Analyzes uploaded images using Gemini Vision to extract descriptions
+ * Analyzes images using Gemini Vision to extract descriptions
  * for later use in image placement.
  *
  * Request body:
- * - images: Array<{ data: string, mimeType: string }>
- *   - data: base64-encoded image data (without data URL prefix)
+ * - images: Array<{ url: string, mimeType: string }>
+ *   - url: Vercel Blob URL or any accessible image URL
  *   - mimeType: e.g., "image/jpeg", "image/png"
  *
  * Response:
  * - descriptions: ImageDescription[]
+ * - usage: { model, tokens, cost, latencyMs, itemLogs }
+ *
+ * Note: Images are fetched server-side from URLs, bypassing the
+ * 4.5MB request body limit imposed by Vercel serverless functions.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { images } = body;
 
-    /*
-     * Validate images array.
-     * Each image must have 'data' (base64) and 'mimeType'.
-     */
+    /* Validate images array */
     if (!images || !Array.isArray(images)) {
       return NextResponse.json(
         { error: "images array is required" },
@@ -60,12 +55,24 @@ export async function POST(request: NextRequest) {
     }
 
     /* Validate each image in the array */
+    const validMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
     for (let i = 0; i < images.length; i++) {
       const img = images[i];
 
-      if (!img.data || typeof img.data !== "string") {
+      if (!img.url || typeof img.url !== "string") {
         return NextResponse.json(
-          { error: `images[${i}].data must be a base64 string` },
+          { error: `images[${i}].url must be a valid URL string` },
+          { status: 400 }
+        );
+      }
+
+      /* Validate URL format */
+      try {
+        new URL(img.url);
+      } catch {
+        return NextResponse.json(
+          { error: `images[${i}].url is not a valid URL` },
           { status: 400 }
         );
       }
@@ -77,33 +84,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      /*
-       * Validate mime type.
-       * Gemini supports common image formats.
-       */
-      const validMimeTypes = [
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/gif",
-      ];
       if (!validMimeTypes.includes(img.mimeType)) {
         return NextResponse.json(
           {
             error: `images[${i}].mimeType must be one of: ${validMimeTypes.join(", ")}`,
           },
-          { status: 400 }
-        );
-      }
-
-      /*
-       * Check approximate size from base64 length.
-       * Base64 encoding increases size by ~33%, so we estimate original size.
-       */
-      const estimatedSize = (img.data.length * 3) / 4;
-      if (estimatedSize > MAX_IMAGE_SIZE) {
-        return NextResponse.json(
-          { error: `images[${i}] exceeds maximum size of 100MB` },
           { status: 400 }
         );
       }
@@ -120,11 +105,10 @@ export async function POST(request: NextRequest) {
 
     /*
      * Analyze images using Gemini Vision.
-     * This function handles errors gracefully, returning fallback descriptions
-     * for images that fail to analyze.
+     * Images are fetched from URLs server-side, then analyzed.
      * Returns both descriptions and usage metadata for client-side logging.
      */
-    const result = await analyzeImagesFromBase64(images, apiKey);
+    const result = await analyzeImagesFromUrls(images, apiKey);
 
     return NextResponse.json({
       descriptions: result.descriptions,

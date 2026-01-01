@@ -174,13 +174,13 @@ export default function Home() {
     setError(null);
 
     try {
-      /* Analyze images */
+      /* Analyze images using Blob URLs */
       const analyzeResponse = await fetch("/api/analyze-images", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           images: images.map((img) => ({
-            data: img.base64,
+            url: img.blobUrl,
             mimeType: img.mimeType,
           })),
         }),
